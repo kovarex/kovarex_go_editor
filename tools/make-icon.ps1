@@ -60,7 +60,7 @@ function Draw([int]$s) {
 # An image as an icon stores it, the classic way: a 32-bit bitmap with alpha,
 # bottom row first, twice as tall as it is (the second half being the 1-bit
 # mask, all clear, as the alpha does its job). Everything reads these; PNG,
-# which is only the usual thing at 256, some readers don't.
+# which is only the usual thing at the big sizes, some readers don't.
 function IconBitmap($bmp) {
   $s  = $bmp.Width
   $ms = New-Object System.IO.MemoryStream
@@ -82,10 +82,12 @@ function IconBitmap($bmp) {
   , $ms.ToArray()  # the comma keeps PowerShell from unrolling it into single bytes
 }
 
-# An .ico is a directory of images: bitmaps, and a PNG for the 256.
+# An .ico is a directory of images: bitmaps for the small ones, and PNGs for
+# 128 and 256, where a bitmap would be 64 and 256 KB of mostly empty corners
+# -- Windows reads PNGs in icons since Vista.
 $images = foreach ($s in $sizes) {
   $bmp = Draw $s
-  if ($s -ge 256) {
+  if ($s -ge 128) {
     $ms = New-Object System.IO.MemoryStream
     $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
     $bytes = $ms.ToArray()

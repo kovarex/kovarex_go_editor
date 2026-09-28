@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <vector>
 
@@ -489,19 +490,57 @@ void Paint(Sprite sprite, ::Image& sheet)
 
 // The wood: a photograph of flat-sawn wood, its grain sweeping in the long
 // arches of a board cut along the log (resources/wood/LICENSE.txt), turned
-// and graded to the board's colours at build time by tools/PrepareWood.cpp
-// and embedded by tools/Embed.cpp.
+// and graded at build time by tools/PrepareWood.cpp, which keeps only how dark
+// each texel is (WoodColours() colours it), and embedded by tools/Embed.cpp.
 extern const unsigned char BOARD_WOOD_JPG[];
 extern const std::size_t   BOARD_WOOD_JPG_SIZE;
+
+namespace {
+
+// The wood as it is stored: how far each texel is from the light wood towards
+// the grain, 0 to GRAIN_RANGE (tools/PrepareWood.cpp's, which this must match).
+// Coloured here, from a honey to a mid brown, through a table of every value a
+// texel can have, so it is a lookup a texel.
+constexpr float GRAIN_RANGE = 64.0f;
+
+::Image WoodColours(::Image grain)
+{
+  // raylib decodes a grayscale JPEG to RGB, three equal channels: only the
+  // first is read.
+  const int stride = grain.format == PIXELFORMAT_UNCOMPRESSED_GRAYSCALE ? 1
+                   : grain.format == PIXELFORMAT_UNCOMPRESSED_R8G8B8    ? 3
+                                                                         : 0;
+  if (!grain.data || stride == 0) {
+    UnloadImage(grain);
+    return GenImageColor(16, 16, ::Color{ 220, 179, 105, 255 });
+  }
+  const Rgba honey = Rgb(232, 198, 132);
+  const Rgba brown = Rgb(192, 146, 82);
+  unsigned char steps[256][3];
+  for (int t = 0; t < 256; ++t) {
+    // A JPEG's ringing can overshoot the range a little.
+    const Rgba c = Mix(honey, brown, std::min(float(t) / GRAIN_RANGE, 1.0f));
+    steps[t][0] = static_cast<unsigned char>(std::lround(c.r * 255.0f));
+    steps[t][1] = static_cast<unsigned char>(std::lround(c.g * 255.0f));
+    steps[t][2] = static_cast<unsigned char>(std::lround(c.b * 255.0f));
+  }
+  const size_t count = size_t(grain.width) * size_t(grain.height);
+  auto* rgb = static_cast<unsigned char*>(MemAlloc(unsigned(count * 3)));
+  const auto* in = static_cast<const unsigned char*>(grain.data);
+  for (size_t i = 0; i < count; ++i) std::memcpy(rgb + i * 3, steps[in[i * size_t(stride)]], 3);
+  ::Image wood{ rgb, grain.width, grain.height, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8 };
+  UnloadImage(grain);
+  return wood;
+}
+
+}  // namespace
 
 GoSprites::Pixels GoSprites::prepare()
 {
   Pixels pixels;
   pixels.sheet = GenImageColor(SHEET_W, SHEET_H, ::Color{ 0, 0, 0, 0 });
   for (int s = 0; s < int(Sprite::Count); ++s) Paint(Sprite(s), pixels.sheet);
-  // Left as the JPG's RGB: the texture takes it as it is.
-  pixels.wood = LoadImageFromMemory(".jpg", BOARD_WOOD_JPG, int(BOARD_WOOD_JPG_SIZE));
-  if (!pixels.wood.data) pixels.wood = GenImageColor(16, 16, ::Color{ 220, 179, 105, 255 });
+  pixels.wood = WoodColours(LoadImageFromMemory(".jpg", BOARD_WOOD_JPG, int(BOARD_WOOD_JPG_SIZE)));
   return pixels;
 }
 
