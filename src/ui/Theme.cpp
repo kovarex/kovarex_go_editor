@@ -481,6 +481,8 @@ Theme::Theme()
     , coordinate(&agui::Label::defaultStyle)
     , treeNode(&agui::Button::defaultStyle)
     , treeNodeCurrent(&this->treeNode)
+    , treeNumberDark(&this->pointDark)
+    , treeNumberLight(&this->pointLight)
     , toolButton(&agui::Button::defaultStyle)
     , greenToolButton(&this->toolButton)
     , redToolButton(&this->toolButton)
@@ -1332,6 +1334,14 @@ void Theme::themeBoard()
   this->treeNode.setHoveredGraphicalSet(&lit);
   this->treeNode.setClickedGraphicalSet(&lit);
   for (auto set : allSets) (this->treeNodeCurrent.*set)(&current);
+
+  // The numbers on the tree's stones: the board's colours, at one size that
+  // fits three digits on a stone.
+  for (agui::LabelStyle* number : { &this->treeNumberDark, &this->treeNumberLight }) {
+    number->setFont(this->pointFont(LineHeight(11)));
+    number->setHorizontalAlign(agui::HorizontalAlign::Center);
+    number->setVerticalAlign(agui::VerticalAlign::Center);
+  }
 
   // tool_button: square, sunk while its tool is the one in use.
   constexpr int TOOL_PX = 34;

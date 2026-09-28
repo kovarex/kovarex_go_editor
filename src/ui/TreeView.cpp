@@ -4,19 +4,20 @@
 #include <ui/Theme.hpp>
 
 #include <Agui/Widget/ImageWidget.hpp>
+#include <Agui/Widget/Label.hpp>
 
 #include <algorithm>
+#include <cstdlib>
+#include <string>
 
 namespace ui {
 
 namespace {
 
-// From one node to the next, across and down.
-constexpr int PITCH = Theme::TREE_NODE_PX + 6;
 // Round the whole tree, so the first node isn't against the pane's edge.
 constexpr int PAD = 4;
-// The stone on a node, inside its button.
-constexpr int ICON = Theme::TREE_NODE_PX - 6;
+// A node with its move number on it: big enough for three digits.
+constexpr int NUMBERED_NODE_PX = 28;
 
 void Pin(agui::Widget& widget, agui::Style& style, int w, int h)
 {
@@ -27,21 +28,18 @@ void Pin(agui::Widget& widget, agui::Style& style, int w, int h)
   widget.setSize(w, h, agui::SetSizeInfo());
 }
 
-// Puts a node's stone in the middle of its button. Children sit inside the
-// button's padding, which includes the border of whatever it is drawn with --
-// and the current node's highlight has one where the others have none -- so
-// this has to be done again whenever the button's style changes.
+// Puts a node's stone, and its number, in the middle of its button. Children
+// sit inside the button's padding, which includes the border of whatever it
+// is drawn with -- and the current node's highlight has one where the others
+// have none -- so this has to be done again whenever the button's style
+// changes.
 void CentreIcon(agui::Button& button)
 {
-  if (button.getChildCount() == 0) return;
-  const int at = (Theme::TREE_NODE_PX - ICON) / 2;
-  button.getChildAt(0u)->setLocation(at - button.getLeftPadding(), at - button.getTopPadding());
-}
-
-// The middle of a grid cell of the tree.
-int Centre(int cell)
-{
-  return PAD + cell * PITCH + PITCH / 2;
+  for (uint32_t i = 0; i < button.getChildCount(); ++i) {
+    agui::Widget& child = *button.getChildAt(i);
+    child.setLocation((button.getWidth() - child.getWidth()) / 2 - button.getLeftPadding(),
+                      (button.getHeight() - child.getHeight()) / 2 - button.getTopPadding());
+  }
 }
 
 }  // namespace
@@ -67,6 +65,24 @@ void TreeView::setSize(int width, int height)
 {
   if (width == this->pane.getWidth() && height == this->pane.getHeight()) return;
   Pin(this->pane, this->pane.style, width, height);
+}
+
+void TreeView::setNumbers(bool on)
+{
+  if (on == this->numbers) return;
+  this->numbers   = on;
+  this->shownTree = 0;  // laid out again, at the other size
+  this->refresh();
+}
+
+int TreeView::nodePx() const
+{
+  return this->numbers ? NUMBERED_NODE_PX : Theme::TREE_NODE_PX;
+}
+
+int TreeView::centre(int cell) const
+{
+  return PAD + cell * this->pitch() + this->pitch() / 2;
 }
 
 void TreeView::refresh()
@@ -151,6 +167,23 @@ void TreeView::rebuild()
     rows    = std::max(rows, p.row + 1);
   }
 
+  const int PITCH = this->pitch();
+  const int NODE  = this->nodePx();
+  const int STONE = this->stonePx();
+
+  // Each move's number, counted as the board counts them: MN starts again
+  // from its value. A line is placed after the move it branches from, so the
+  // parent's number is always there.
+  std::unordered_map<const sgf::Node*, int> numberOf;
+  for (const Placed& p : this->placed) {
+    int number = p.node->parent() ? numberOf[p.node->parent()] : 0;
+    if (Game::MoveColor(*p.node) != Stone::None) {
+      const std::string& mn = p.node->get("MN");
+      number                = mn.empty() ? number + 1 : std::atoi(mn.c_str());
+    }
+    numberOf[p.node] = number;
+  }
+
   // The lines first, so the nodes sit on top of them.
   const auto picture = [this](Sprite sprite, int x, int y, int w, int h) {
     agui::ImageWidget& image = make<agui::ImageWidget>(this->sprites.image(sprite), true);
@@ -161,30 +194,43 @@ void TreeView::rebuild()
   };
   for (const Placed& p : this->placed) {
     // On along the line to the next move.
-    if (p.node->childCount() > 0) picture(Sprite::TreeHorizontal, Centre(p.column), PAD + p.row * PITCH, PITCH, PITCH);
+    if (p.node->childCount() > 0) picture(Sprite::TreeHorizontal, this->centre(p.column), PAD + p.row * PITCH, PITCH, PITCH);
 
     // Down from the move a variation branches off, then across to it.
     if (p.node->parent() && p.node->indexInParent() > 0) {
       const auto [parentColumn, parentRow] = where[p.node->parent()];
       if (p.row - 1 > parentRow) {
-        picture(Sprite::TreeVertical, PAD + parentColumn * PITCH, Centre(parentRow), PITCH, (p.row - 1 - parentRow) * PITCH);
+        picture(Sprite::TreeVertical, PAD + parentColumn * PITCH, this->centre(parentRow), PITCH, (p.row - 1 - parentRow) * PITCH);
       }
-      picture(Sprite::TreeDiagonal, Centre(parentColumn), Centre(p.row - 1), PITCH, PITCH);
+      picture(Sprite::TreeDiagonal, this->centre(parentColumn), this->centre(p.row - 1), PITCH, PITCH);
     }
   }
 
   for (const Placed& p : this->placed) {
     agui::Button& button = make<agui::Button>(&this->theme.treeNode);
     button.setFocusable(false);
+    Pin(button, button.style, NODE, NODE);
 
     const Stone color = Game::MoveColor(*p.node);
     agui::ImageWidget& icon = make<agui::ImageWidget>(
         this->sprites.image(color == Stone::Black ? Sprite::BlackStone : color == Stone::White ? Sprite::WhiteStone : Sprite::TreeSetup));
     icon.scaleToKeepTheRatio = true;
     icon.setIgnoredByInteraction(true);
-    if (this->game->isPass(*p.node)) icon.opacity = 0.4;  // a pass: a move, but no stone
+    const bool pass = this->game->isPass(*p.node);
+    if (pass) icon.opacity = 0.4;  // a pass: a move, but no stone
     button << icon;
-    Pin(icon, icon.style, ICON, ICON);
+    Pin(icon, icon.style, STONE, STONE);
+
+    if (this->numbers && color != Stone::None) {
+      // A pass has no stone to be dark or light on: the number goes on the
+      // background, like the dark one.
+      const bool light = color == Stone::Black && !pass;
+      agui::Label& number = agui::label(std::to_string(numberOf[p.node]), light ? &this->theme.treeNumberLight
+                                                                                 : &this->theme.treeNumberDark);
+      number.setIgnoredByInteraction(true);
+      Pin(number, number.style, STONE, STONE);
+      button << number;
+    }
     CentreIcon(button);
 
     // A comment shows when the node is hovered, so commented moves can be found.
@@ -192,7 +238,7 @@ void TreeView::rebuild()
 
     sgf::Node* node = p.node;
     button.onClick(this, [this, node] { this->game->goTo(*node); });
-    const int offset = (PITCH - Theme::TREE_NODE_PX) / 2;
+    const int offset = (PITCH - NODE) / 2;
     button.setLocation(PAD + p.column * PITCH + offset, PAD + p.row * PITCH + offset);
     *this->canvas << button;
     this->buttons[p.node] = &button;

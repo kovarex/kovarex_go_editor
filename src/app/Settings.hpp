@@ -44,6 +44,7 @@ struct Settings {
     bool coordinates = true;
     bool moveNumbers = false;
     bool nextMoves   = true;  // faint stones where the variations from here go
+    bool treeNumbers = true;  // move numbers on the game tree's stones
 
     bool operator==(const Board&) const = default;
   };

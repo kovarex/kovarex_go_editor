@@ -49,6 +49,8 @@ public:
   // What the top bar says the file is.
   void setTitle(const std::string& title);
   void setBoardOptions(const BoardView::Options& options);
+  // Move numbers on the game tree's stones.
+  void setTreeNumbers(bool on);
   // The interface scale, in percent, which the board lines its grid up with.
   void setScale(int percent) { this->board.setScale(percent); }
 

@@ -379,6 +379,11 @@ void EditorView::setBoardOptions(const BoardView::Options& options)
   this->board.setOptions(options);
 }
 
+void EditorView::setTreeNumbers(bool on)
+{
+  this->tree.setNumbers(on);
+}
+
 std::vector<Command> EditorView::takeCommands()
 {
   std::vector<Command> commands;

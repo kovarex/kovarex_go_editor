@@ -43,6 +43,11 @@ public:
   // The pane's size on screen.
   void setSize(int width, int height);
 
+  // Whether each move's stone carries its number, as in CGoban: white on a
+  // black stone, black on a white one. The nodes are bigger then, for three
+  // digits to fit.
+  void setNumbers(bool on);
+
 private:
   struct Placed {
     sgf::Node* node;
@@ -51,6 +56,13 @@ private:
   };
 
   void rebuild();
+
+  // A node's button, from one node to the next, and the stone in it.
+  int nodePx() const;
+  int pitch() const { return this->nodePx() + 6; }
+  int stonePx() const { return this->nodePx() - 6; }
+  // The middle of a grid cell of the tree.
+  int centre(int cell) const;
   // Places `start` and the first-child line that follows it on the first
   // row free all the way along, then the variations off that line.
   void placeLine(sgf::Node* start, int column, int minRow);
@@ -70,6 +82,7 @@ private:
 
   uint64_t shownTree     = 0;
   uint64_t shownRevision = 0;
+  bool     numbers       = true;
 };
 
 }  // namespace ui

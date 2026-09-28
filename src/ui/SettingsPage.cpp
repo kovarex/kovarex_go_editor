@@ -171,6 +171,8 @@ SettingsPage::SettingsPage(Theme& theme, Settings& settings, std::function<void(
   check("Coordinates", &Settings::Board::coordinates, "Letters and numbers round the edge of the board.");
   check("Move numbers", &Settings::Board::moveNumbers, "The move number on every stone, rather than a dot on the last one.");
   check("Next moves", &Settings::Board::nextMoves, "Where the variations from the current move go, as faint stones.");
+  check("Numbers in the game tree", &Settings::Board::treeNumbers,
+        "Each move's number on its stone in the game tree, as CGoban shows it, rather than the bare stone.");
 
   // --- files: an action, not a setting, so Reset leaves it be ---
   {

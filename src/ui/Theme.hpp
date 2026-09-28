@@ -71,6 +71,9 @@ public:
   // The game tree: a button per node, the current one lit up.
   agui::ButtonStyle treeNode;
   agui::ButtonStyle treeNodeCurrent;
+  // A move's number on its stone in the tree: dark on white, light on black.
+  agui::LabelStyle  treeNumberDark;
+  agui::LabelStyle  treeNumberLight;
 
   // A square button in the tool bar, down while its tool is the one in use.
   agui::ButtonStyle toolButton;

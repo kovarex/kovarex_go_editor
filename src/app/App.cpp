@@ -414,6 +414,7 @@ void App::updateSettings()
 
   this->gui.editor().setBoardOptions({ this->settings.board.coordinates, this->settings.board.moveNumbers,
                                        this->settings.board.nextMoves });
+  this->gui.editor().setTreeNumbers(this->settings.board.treeNumbers);
 
   // The settings page edits `settings` directly; bring the window and the
   // Gui in line with whatever it changed.

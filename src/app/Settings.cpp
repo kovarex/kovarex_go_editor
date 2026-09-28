@@ -45,6 +45,7 @@ Settings Settings::load()
   s.board.coordinates = ini.getBool("board", "coordinates", s.board.coordinates);
   s.board.moveNumbers = ini.getBool("board", "move-numbers", s.board.moveNumbers);
   s.board.nextMoves   = ini.getBool("board", "next-moves", s.board.nextMoves);
+  s.board.treeNumbers = ini.getBool("board", "tree-move-numbers", s.board.treeNumbers);
 
   s.newGame.width    = std::clamp(ini.getInt("new-game", "width", s.newGame.width), 2, MAX_BOARD);
   s.newGame.height   = std::clamp(ini.getInt("new-game", "height", s.newGame.height), 2, MAX_BOARD);
@@ -73,6 +74,7 @@ void Settings::save() const
   ini.setBool("board", "coordinates", this->board.coordinates);
   ini.setBool("board", "move-numbers", this->board.moveNumbers);
   ini.setBool("board", "next-moves", this->board.nextMoves);
+  ini.setBool("board", "tree-move-numbers", this->board.treeNumbers);
 
   ini.setInt("new-game", "width", this->newGame.width);
   ini.setInt("new-game", "height", this->newGame.height);
