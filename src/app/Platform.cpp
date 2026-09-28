@@ -263,4 +263,15 @@ bool IsSgfAssociated()
   return command == OpenCommand();
 }
 
+bool OpenInBrowser(const std::string& url, std::string* error)
+{
+  // ShellExecute's result is an HINSTANCE only for old times' sake: above 32
+  // is success, anything else an error code.
+  const auto result = reinterpret_cast<INT_PTR>(
+      ShellExecuteW(nullptr, L"open", Widen(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+  if (result > 32) return true;
+  if (error) *error = "Couldn't open the web browser (error " + std::to_string(result) + ").";
+  return false;
+}
+
 }  // namespace platform

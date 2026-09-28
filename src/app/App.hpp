@@ -58,6 +58,9 @@ private:
   bool save(const std::filesystem::path& file);
   void saveOrAsk();
   void showFiles(bool saving);
+  // The game to AI Sensei for review: its upload page, opened in the web
+  // browser with the game already on it.
+  void sendToAiSensei();
 
   // The file's name, or "Untitled" before it has one.
   std::string name() const;

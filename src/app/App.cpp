@@ -14,6 +14,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 
@@ -138,6 +139,9 @@ void App::handle(Command command)
                                                               : ".sgf files open in something else, or nothing.",
                                   platform::IsSgfAssociated());
     pages.open(ui::Pages::Page::Settings);
+    break;
+  case Command::AiSensei:
+    this->sendToAiSensei();
     break;
   case Command::Help:
     pages.open(ui::Pages::Page::Help);
@@ -316,6 +320,41 @@ void App::saveOrAsk()
 {
   if (this->path.empty()) this->showFiles(true);
   else                    this->save(this->path);
+}
+
+void App::sendToAiSensei()
+{
+  if (!this->game) return;
+  // What saving writes, CA[UTF-8] included, since that is how it's sent.
+  this->game->stampFormat();
+  const std::string sgf = sgf::Write(this->game->file());
+
+  // ai-sensei.com/upload?sgf=... takes the record as pasted text: the upload
+  // dialog opens with it, or after logging in if the browser isn't yet.
+  // Percent-encoded byte by byte, so the UTF-8 of a name stays intact.
+  std::string url = "https://ai-sensei.com/upload?sgf=";
+  static const char HEX[] = "0123456789ABCDEF";
+  for (const unsigned char c : sgf) {
+    if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+      url += char(c);
+    } else {
+      url += '%';
+      url += HEX[c >> 4];
+      url += HEX[c & 15];
+    }
+  }
+
+  // Windows hands the URL to the browser on its command line, which holds
+  // 32767 characters in all.
+  constexpr size_t MAX_URL = 30000;
+  if (url.size() > MAX_URL) {
+    this->gui.editor().message("This game is too long to send this way: save it and upload the file on ai-sensei.com.",
+                               false);
+    return;
+  }
+  std::string error;
+  if (platform::OpenInBrowser(url, &error)) this->gui.editor().message("Opened AI Sensei's upload page in the browser.");
+  else                                      this->gui.editor().message(error, false);
 }
 
 void App::showFiles(bool forSaving)

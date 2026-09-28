@@ -176,6 +176,8 @@ agui::Widget& EditorView::buildTopBar()
   bar << this->commandButton("Save", Command::Save, "Save (Ctrl+S)", 60);
   bar << this->commandButton("Save as", Command::SaveAs, "Save under another name (Ctrl+Shift+S)", 80);
   bar << this->commandButton("Game info", Command::GameInfo, "Players, result, date and the rest (Ctrl+I)", 100);
+  bar << this->commandButton("AI Sensei", Command::AiSensei,
+                             "Have AI Sensei review this game: its upload page opens in the browser with the game on it", 100);
 
   this->title = &agui::label("", &this->theme.headingLabel);
   this->title->style.setLeftPadding(16);

@@ -53,4 +53,8 @@ bool AssociateSgfFiles(std::string* error);
 // Whether .sgf files currently open in this exe.
 bool IsSgfAssociated();
 
+// Opens `url` (UTF-8) in the default web browser. False with the reason if
+// Windows couldn't.
+bool OpenInBrowser(const std::string& url, std::string* error);
+
 }  // namespace platform

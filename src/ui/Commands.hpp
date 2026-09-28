@@ -52,6 +52,7 @@ enum class Command {
   Save,
   SaveAs,
   GameInfo,
+  AiSensei,  // opens AI Sensei's upload page in the browser, the game on it
   Settings,
   Help,
 
