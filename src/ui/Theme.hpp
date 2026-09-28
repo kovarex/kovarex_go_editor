@@ -20,6 +20,7 @@
 #include <Agui/Widget/FrameStyle.hpp>
 #include <Agui/Widget/HorizontalFlowStyle.hpp>
 #include <Agui/Widget/LabelStyle.hpp>
+#include <Agui/Widget/SliderStyle.hpp>
 #include <Agui/Widget/TextBoxStyle.hpp>
 
 #include <map>
@@ -92,6 +93,7 @@ public:
   agui::HorizontalFlowStyle playerInputFlow;       // player_input_horizontal_flow
   agui::LabelStyle          frameSubheadingLabel;  // frame_subheading_label
   agui::TextBoxStyle        sliderValueField;      // slider_value_textfield, other_settings_gui_textbox
+  agui::SliderStyle         notchedSlider;         // notched_slider: a notch per value, a pointed knob
 
   // The sheet that darkens the game behind the main menu.
   agui::EmptyWidgetStyle dimmer;

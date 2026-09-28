@@ -263,6 +263,19 @@ bool IsSgfAssociated()
   return command == OpenCommand();
 }
 
+bool WindowFitsOnScreen(void* windowHandle)
+{
+  const HWND  window = static_cast<HWND>(windowHandle);
+  MONITORINFO monitor{};
+  monitor.cbSize = sizeof(monitor);
+  RECT outer{};
+  if (!GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &monitor) || !GetWindowRect(window, &outer)) {
+    return true;  // nothing to go on: leave it be
+  }
+  const RECT& work = monitor.rcWork;
+  return outer.right - outer.left <= work.right - work.left && outer.bottom - outer.top <= work.bottom - work.top;
+}
+
 bool OpenInBrowser(const std::string& url, std::string* error)
 {
   // ShellExecute's result is an HINSTANCE only for old times' sake: above 32

@@ -29,7 +29,7 @@ GuiLayer::GuiLayer(Settings& settings)
   this->editorView = std::make_unique<EditorView>(*this->gui, *this->theme, *this->sprites);
   this->pageStack  = std::make_unique<Pages>(*this->gui, *this->theme, settings);
 
-  this->setScale(settings.graphics.interfaceScale);
+  this->setScale(EffectiveInterfaceScale(settings.graphics, GetScreenWidth(), GetScreenHeight()));
   this->setTooltipDelay(settings.graphics.tooltipDelay);
 }
 

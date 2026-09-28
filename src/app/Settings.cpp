@@ -32,6 +32,7 @@ Settings Settings::load()
   s.graphics.windowedFullscreen = ini.getBool("graphics", "windowed-fullscreen", s.graphics.windowedFullscreen);
   s.graphics.vsync              = ini.getBool("graphics", "vsync", s.graphics.vsync);
   s.graphics.fpsLimit           = std::max(0, ini.getInt("graphics", "fps-limit", s.graphics.fpsLimit));
+  s.graphics.automaticScale     = ini.getBool("graphics", "automatic-interface-scale", s.graphics.automaticScale);
   s.graphics.interfaceScale     = ClampedInterfaceScale(ini.getInt("graphics", "interface-scale", s.graphics.interfaceScale));
   s.graphics.tooltipDelay       = ini.getInt("graphics", "tooltip-delay", s.graphics.tooltipDelay);
   if (s.graphics.tooltipDelay != Settings::Graphics::TOOLTIPS_NEVER) {
@@ -64,6 +65,7 @@ void Settings::save() const
   ini.setBool("graphics", "windowed-fullscreen", this->graphics.windowedFullscreen);
   ini.setBool("graphics", "vsync", this->graphics.vsync);
   ini.setInt("graphics", "fps-limit", this->graphics.fpsLimit);
+  ini.setBool("graphics", "automatic-interface-scale", this->graphics.automaticScale);
   ini.setInt("graphics", "interface-scale", this->graphics.interfaceScale);
   ini.setInt("graphics", "tooltip-delay", this->graphics.tooltipDelay);
 

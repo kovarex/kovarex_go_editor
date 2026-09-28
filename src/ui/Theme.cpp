@@ -488,6 +488,7 @@ Theme::Theme()
     , playerInputFlow(&agui::HorizontalFlow::defaultStyle)
     , frameSubheadingLabel(&agui::Label::defaultStyle)
     , sliderValueField(&agui::TextField::defaultStyle)
+    , notchedSlider(&agui::Slider::defaultStyle)
     , smallButton(&agui::Button::defaultStyle)
     // style.lua's fonts: default-small, default, default-semibold, default-bold,
     // heading-2 and heading-1.
@@ -773,6 +774,37 @@ void Theme::themeSliders()
     k.style->setMinimalHeight(12);
     k.style->setMaximalHeight(12);
   }
+
+  // notched_slider: a notch for every value it can take, with the bar under
+  // them, and a knob that points down at the notch it is on.
+  agui::ElementImageSet notch = Set(this->monolith({ 138, 200, 4, 16 }),
+                                    this->layer({ .center = Piece{ 146, 192, 20, 32 } },
+                                                { .outer = true, .tint = DIRT, .topShift = -4, .bottomShift = 4,
+                                                  .leftShift = -4, .rightShift = 4 }));
+  this->notchedSlider.setDrawNotches(true);
+  this->notchedSlider.setNotch(notch);
+  this->notchedSlider.setMinimalHeight(20);
+  this->notchedSlider.setMaximalHeight(20);
+  // notched_slider_glow
+  const auto pointerGlow = [this](const agui::Color& tint) {
+    return this->layer({ .center = Piece{ 96, 184, 40, 48 } },
+                       { .outer = true, .tint = tint, .topShift = -2, .bottomShift = 4, .leftShift = -4, .rightShift = 4 });
+  };
+  agui::ButtonStyle* pointer = Under(this->notchedSlider.initButtonStyle(), &agui::Button::defaultStyle);
+  const agui::ElementImageSet pointerIdle     = Set(this->monolith({ 0, 189, 24, 35 }), pointerGlow(SHADOW));
+  const agui::ElementImageSet pointerHovered  = Set(this->monolith({ 48, 189, 24, 35 }), {}, pointerGlow(GLOW));
+  const agui::ElementImageSet pointerClicked  = Set(this->monolith({ 72, 189, 24, 35 }), pointerGlow(SHADOW));
+  const agui::ElementImageSet pointerDisabled = Set(this->monolith({ 24, 189, 24, 35 }), pointerGlow(SHADOW));
+  pointer->setDefaultGraphicalSet(&pointerIdle);
+  pointer->setHoveredGraphicalSet(&pointerHovered);
+  pointer->setClickedGraphicalSet(&pointerClicked);
+  pointer->setSelectedGraphicalSet(&pointerHovered);
+  pointer->setDisabledGraphicalSet(&pointerDisabled);
+  pointer->setPaddings(0, 0, 0, 0);
+  pointer->setMinimalWidth(12);
+  pointer->setMaximalWidth(12);
+  pointer->setMinimalHeight(17);
+  pointer->setMaximalHeight(17);
 }
 
 void Theme::themeBars()

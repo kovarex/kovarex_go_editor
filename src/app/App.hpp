@@ -44,9 +44,6 @@ private:
   void handleDroppedFiles();
   void handleClose();
   void updateSettings();
-  // Settings' Back, or Esc on it: everything the page changed goes back to
-  // how it was when the page opened. The App applies it on the next frame.
-  void discardSettings();
   void updateTitle();
 
   // Asks about unsaved changes, if there are any, and then does `then`.
@@ -69,7 +66,7 @@ private:
   // Read before the window opens, which is sized from it.
   Settings settings = Settings::load();
   Settings applied  = this->settings;  // what the window was last set to
-  Settings kept     = this->settings;  // as the settings page found them, to go back to
+  int      shownScale = 0;             // the interface scale the GUI is drawn at
 
   Window       window{ this->settings };
   ui::GuiLayer gui{ this->settings };

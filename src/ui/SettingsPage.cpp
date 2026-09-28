@@ -10,6 +10,7 @@
 #include <Agui/Widget/HorizontalFlow.hpp>
 #include <Agui/Widget/ImageWidget.hpp>
 #include <Agui/Widget/Label.hpp>
+#include <Agui/Widget/RadioButton.hpp>
 #include <Agui/Widget/Slider.hpp>
 #include <Agui/Widget/TextField.hpp>
 #include <Agui/Widget/VerticalFlow.hpp>
@@ -59,10 +60,11 @@ std::string ResetTip(int count)
 
 }  // namespace
 
-SettingsPage::SettingsPage(Theme& theme, Settings& settings, std::function<void()> onAssociate,
+SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<void()> onAssociate,
                            std::function<void()> onConfirm, std::function<void()> onBack)
-    : settings(settings)
-    , openedWith(settings)
+    : live(live)
+    , settings(live)
+    , openedWith(live)
     , theme(theme)
     , window(agui::GuiDirection::Vertical, "Settings")
 {
@@ -89,19 +91,53 @@ SettingsPage::SettingsPage(Theme& theme, Settings& settings, std::function<void(
     return this->settings.graphics.windowedFullscreen != other.graphics.windowedFullscreen;
   });
 
-  this->scale = &make<agui::DropDown>();
-  for (int percent = Graphics::MIN_SCALE; percent <= Graphics::MAX_SCALE; percent += Graphics::SCALE_STEP) {
-    this->scale->addItem(Percent(percent));
+  // As Factorio's UI scale: automatic, following the window, or a manual
+  // one on a notched slider -- which, with its value, is only live while
+  // manual is picked.
+  {
+    agui::Frame& scale = this->section(content);
+    scale << this->name("UI scale", nullptr, &this->theme.captionLabel);
+
+    this->automaticScale = &make<agui::RadioButton>(std::string("Automatic"));
+    this->manualScale    = &make<agui::RadioButton>(std::string("Manual"));
+    this->scaleChoice.add(this->automaticScale);
+    this->scaleChoice.add(this->manualScale);
+    this->automaticScale->onCheckChange(this, [this](bool on) {
+      if (!on) return;
+      this->settings.graphics.automaticScale = true;
+      this->refresh();
+    });
+    this->manualScale->onCheckChange(this, [this](bool on) {
+      if (!on) return;
+      this->settings.graphics.automaticScale = false;
+      this->refresh();
+    });
+    scale << *this->automaticScale;
+
+    this->manualScaleSlider = &make<agui::Slider>(&this->theme.notchedSlider);
+    this->manualScaleSlider->setMinMaxValues(Graphics::MIN_SCALE, Graphics::MAX_SCALE);
+    this->manualScaleSlider->setValueStep(Graphics::SCALE_STEP);
+    this->manualScaleSlider->setDiscreteSlider();
+    this->manualScaleSlider->style.setMinimalWidth(SLIDER_PX);
+    this->manualScaleSlider->onSliderMove(this, [this](double v) {
+      this->settings.graphics.interfaceScale = ClampedInterfaceScale(int(std::lround(v)));
+      this->refresh();
+    });
+    this->manualScaleValue = &make<agui::TextField>(&this->theme.sliderValueField);
+    this->manualScaleValue->onConfirm(this, [this] { this->typedManualScale(); });
+    this->manualScaleValue->onFocusLose(this, [this] { this->typedManualScale(); });
+    agui::HorizontalFlow& manual = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
+    manual << *this->manualScale << agui::pusher
+           << *this->manualScaleSlider << *this->manualScaleValue;
+    scale << manual;
+
+    this->track(*this->automaticScale, [this](const Settings& other) {
+      return this->settings.graphics.automaticScale != other.graphics.automaticScale;
+    });
+    this->track(this->manualScaleSlider->marker, [this](const Settings& other) {
+      return this->settings.graphics.interfaceScale != other.graphics.interfaceScale;
+    });
   }
-  this->scale->onItemSelect(this, [this](int i) {
-    this->settings.graphics.interfaceScale = Graphics::MIN_SCALE + i * Graphics::SCALE_STEP;
-    this->changed();
-  });
-  this->settingRow(this->section(content), "Interface scale",
-                   "How big everything is drawn. Ctrl and numpad + or - change it from anywhere.", *this->scale);
-  this->track(*this->scale, [this](const Settings& other) {
-    return this->settings.graphics.interfaceScale != other.graphics.interfaceScale;
-  });
 
   this->fpsLimits = { 0, 30, 60, 120, 144, 240 };
   // A hand-edited limit that isn't one of the choices gets an item of its own.
@@ -275,15 +311,35 @@ void SettingsPage::settingRow(agui::Frame& section, const char* name, const char
 
 void SettingsPage::checkRow(agui::Frame& section, agui::CheckBox& box, const char* tip)
 {
-  if (!tip) {
-    section << box;
-    return;
-  }
-  box.setToolTip(tip);
+  section << this->withInfo(box, tip);
+}
+
+agui::Widget& SettingsPage::withInfo(agui::ToggleButton& toggle, const char* tip)
+{
+  if (!tip) return toggle;
+  toggle.setToolTip(tip);
   agui::HorizontalFlow& flow = row(4);
   flow.style.setVerticalAlign(agui::VerticalAlign::Center);
-  flow << box << this->info(tip);
-  section << flow;
+  flow << toggle << this->info(tip);
+  return flow;
+}
+
+void SettingsPage::setAutomaticScale(int percent)
+{
+  if (percent == this->automatic) return;
+  this->automatic = percent;
+  this->automaticScale->setText("Automatic (" + Percent(percent) + ")");
+}
+
+void SettingsPage::typedManualScale()
+{
+  const std::string text = this->manualScaleValue->getText();
+  if (const size_t digit = text.find_first_of("0123456789"); digit != std::string::npos) {
+    this->settings.graphics.interfaceScale = ClampedInterfaceScale(std::stoi(text.substr(digit, 9)));
+  }
+  // Anything else puts back what was there.
+  this->manualScaleValue->setText(Percent(this->settings.graphics.interfaceScale));
+  this->refresh();
 }
 
 void SettingsPage::track(agui::Widget& widget, std::function<bool(const Settings&)> differs)
@@ -312,7 +368,8 @@ void SettingsPage::unhighlight(const agui::Widget* source, const agui::MouseEven
 
 void SettingsPage::open()
 {
-  this->openedWith = this->settings;
+  this->settings   = this->live;
+  this->openedWith = this->live;
   this->refresh();
 }
 
@@ -328,7 +385,15 @@ void SettingsPage::refresh()
     if (box->isChecked() != this->settings.board.*field) box->setChecked(this->settings.board.*field);
   }
 
-  this->scale->setSelectedIndex((g.interfaceScale - Graphics::MIN_SCALE) / Graphics::SCALE_STEP);
+  agui::RadioButton* chosen = g.automaticScale ? this->automaticScale : this->manualScale;
+  if (!chosen->isChecked()) this->scaleChoice.setOnlySelected(chosen);
+  this->manualScaleSlider->setValue(g.interfaceScale);
+  if (!this->manualScaleValue->isFocused()) this->manualScaleValue->setText(Percent(g.interfaceScale));
+  // Factorio's disabled look for the manual scale while it isn't the one used.
+  if (this->manualScaleSlider->isEnabled() == g.automaticScale) {
+    this->manualScaleSlider->setEnabled(!g.automaticScale);
+    this->manualScaleValue->setEnabled(!g.automaticScale);
+  }
 
   const int delay = g.tooltipDelay;
   this->tooltipDelay->setValue(delay == Graphics::TOOLTIPS_NEVER ? Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP : delay);

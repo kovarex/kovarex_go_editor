@@ -53,6 +53,10 @@ bool AssociateSgfFiles(std::string* error);
 // Whether .sgf files currently open in this exe.
 bool IsSgfAssociated();
 
+// Whether the window, its frame and title bar included, fits in the part of
+// its monitor that windows may use -- the screen less the taskbar.
+bool WindowFitsOnScreen(void* windowHandle);
+
 // Opens `url` (UTF-8) in the default web browser. False with the reason if
 // Windows couldn't.
 bool OpenInBrowser(const std::string& url, std::string* error);

@@ -9,17 +9,18 @@
 // opened. Pressing reset only changes the page, and like any other change
 // here that is only kept by Confirm.
 //
-// It edits a Settings in place, and the App applies each change as it is
-// made, so a new scale or display mode can be seen before it is kept. Confirm
-// keeps them; Back (or Esc) has the App put back what there was when the page
-// opened. The file association is not a setting: its button asks the App to
-// do it there and then.
+// It edits a draft of the settings, taken when the page opens, and nothing
+// it changes is applied until Confirm: then the App takes the draft's
+// graphics and board settings as its own, applies them and saves them. Back
+// (or Esc) just drops the draft. The file association is not a setting: its
+// button asks the App to do it there and then.
 
 #pragma once
 
 #include <app/Settings.hpp>
 
 #include <Agui/GenericTargetable.hpp>
+#include <Agui/Widget/RadioButtonGroup.hpp>
 #include <Agui/Widget/Window.hpp>
 
 #include <functional>
@@ -30,6 +31,8 @@
 namespace agui {
 class Button;
 class CheckBox;
+class RadioButton;
+class ToggleButton;
 class DropDown;
 class Frame;
 class ImageWidget;
@@ -48,19 +51,26 @@ class Theme;
 
 class SettingsPage : public agui::GenericTargetable {
 public:
-  SettingsPage(Theme& theme, Settings& settings, std::function<void()> onAssociate, std::function<void()> onConfirm,
+  SettingsPage(Theme& theme, const Settings& live, std::function<void()> onAssociate, std::function<void()> onConfirm,
                std::function<void()> onBack);
 
   agui::Window& root() { return this->window; }
 
-  // The page is being opened: what the settings are now is what Back would
-  // go back to.
+  // The page is being opened: the draft starts as the settings are now.
   void open();
+
+  // What the page has made of the settings, for Confirm to keep -- and for
+  // the interface scale's keyboard shortcut to change while the page is up.
+  Settings& draft() { return this->settings; }
 
   // Brings every control in line with the settings: when the page opens,
   // when changes are thrown away, and when the interface scale's keyboard
   // shortcut changes it from outside.
   void refresh();
+
+  // What the automatic interface scale works out to for the window as it is,
+  // for the label on its choice. Cheap when it hasn't changed.
+  void setAutomaticScale(int percent);
 
   // What the line under the association button says.
   void setAssociation(const std::string& text, bool good);
@@ -75,6 +85,8 @@ private:
   void settingRow(agui::Frame& section, const char* name, const char* tip, agui::Widget& control);
   // A check box goes straight into its section, being its own name.
   void checkRow(agui::Frame& section, agui::CheckBox& box, const char* tip);
+  // A check box or radio button followed by an info icon, when it has a tip.
+  agui::Widget& withInfo(agui::ToggleButton& toggle, const char* tip);
 
   // A setting as the reset and Back buttons see it: the control to light up,
   // and whether the setting differs from what it is in `other`.
@@ -95,11 +107,14 @@ private:
   // something to reset, and says how much.
   void changed();
 
+  // The value typed into the manual scale's field, if it can be read.
+  void typedManualScale();
   // The value typed into the tooltip delay's field, if it can be read.
   void typedTooltipDelay();
 
-  Settings&        settings;
-  Settings         openedWith;  // what Back goes back to
+  const Settings&  live;        // the App's, as they are applied
+  Settings         settings;    // the draft the page edits
+  Settings         openedWith;  // the draft as the page opened, for Back's highlight
   Theme&           theme;
   agui::Window     window;
 
@@ -107,7 +122,12 @@ private:
   agui::DropDown*  mode              = nullptr;
   agui::CheckBox*  vsync             = nullptr;
   agui::DropDown*  fps               = nullptr;
-  agui::DropDown*  scale             = nullptr;
+  agui::RadioButton* automaticScale    = nullptr;
+  agui::RadioButton* manualScale       = nullptr;
+  agui::RadioButtonGroup scaleChoice;
+  agui::Slider*    manualScaleSlider = nullptr;
+  agui::TextField* manualScaleValue  = nullptr;
+  int              automatic         = 0;  // the automatic scale the label shows
   agui::Slider*    tooltipDelay      = nullptr;
   agui::TextField* tooltipDelayValue = nullptr;
   agui::Label*     association       = nullptr;

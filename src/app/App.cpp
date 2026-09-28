@@ -39,18 +39,11 @@ App::Window::Window(const Settings& settings)
   // Esc belongs to the editor; closing is the close button's job.
   SetExitKey(KEY_NULL);
 
-  // A size saved on a bigger monitor would hang off this one.
-  const int monitor  = GetCurrentMonitor();
-  const int monitorW = GetMonitorWidth(monitor);
-  const int monitorH = GetMonitorHeight(monitor);
-  if (GetScreenWidth() > monitorW || GetScreenHeight() > monitorH) {
-    const int w = std::min(GetScreenWidth(), monitorW * 9 / 10);
-    const int h = std::min(GetScreenHeight(), monitorH * 9 / 10);
-    const Vector2 origin = GetMonitorPosition(monitor);
-    SetWindowSize(w, h);
-    SetWindowPosition(int(origin.x) + (monitorW - w) / 2, int(origin.y) + (monitorH - h) / 2);
-  }
-  if (settings.window.maximized) MaximizeWindow();
+  // A window too big for this screen -- the default on a full HD monitor,
+  // whose taskbar and title bar leave less than its 1016 lines, or a size
+  // saved on a bigger monitor -- opens maximized instead. That is as big as
+  // it can be, and on full HD the interface still comes out at its 125%.
+  if (settings.window.maximized || !platform::WindowFitsOnScreen(GetWindowHandle())) MaximizeWindow();
 }
 
 App::Window::~Window()
@@ -75,8 +68,6 @@ App::App()
 int App::run()
 {
   while (!this->quitRequested) this->frame();
-  // Closed with the settings page still up: what it changed was never kept.
-  if (this->gui.pages().current() == ui::Pages::Page::Settings) this->discardSettings();
   this->settings.save();  // for the window size, if nothing else
   return 0;
 }
@@ -133,7 +124,6 @@ void App::handle(Command command)
     pages.open(ui::Pages::Page::GameInfo);
     break;
   case Command::Settings:
-    this->kept = this->settings;
     pages.settings.open();
     pages.settings.setAssociation(platform::IsSgfAssociated() ? ".sgf files open in this program."
                                                               : ".sgf files open in something else, or nothing.",
@@ -149,7 +139,6 @@ void App::handle(Command command)
   case Command::Cancel:
     // Esc on a page is its Back button.
     if (pages.isOpen()) {
-      if (pages.current() == ui::Pages::Page::Settings) this->discardSettings();
       pages.close();
       this->after = After::None;
     } else {
@@ -197,11 +186,14 @@ void App::handlePages()
     break;
   }
   case ui::Pages::Action::SaveSettings:
+    // Only now does anything the page changed take effect: updateSettings()
+    // applies it from here on.
+    this->settings.graphics = pages.settings.draft().graphics;
+    this->settings.board    = pages.settings.draft().board;
     this->settings.save();
     break;
   case ui::Pages::Action::DiscardSettings:
-    this->discardSettings();
-    break;
+    break;  // the page's draft is dropped, and the settings were never touched
   case ui::Pages::Action::Back:
     this->after = After::None;
     break;
@@ -234,11 +226,8 @@ void App::handleClose()
 void App::guard(After then, const std::filesystem::path& file)
 {
   // Something else is taking over the screen: whatever the settings page
-  // changed and didn't save goes, as if Back had been pressed.
-  if (this->gui.pages().current() == ui::Pages::Page::Settings) {
-    this->discardSettings();
-    this->gui.pages().close();
-  }
+  // changed and didn't confirm goes, as if Back had been pressed.
+  if (this->gui.pages().current() == ui::Pages::Page::Settings) this->gui.pages().close();
   this->after     = then;
   this->afterFile = file;
   if (this->game && this->game->modified()) {
@@ -390,38 +379,48 @@ void App::updateTitle()
   SetWindowTitle((title + " - " + cfg::APP_NAME).c_str());
 }
 
-void App::discardSettings()
-{
-  this->settings.graphics = this->kept.graphics;
-  this->settings.board    = this->kept.board;
-  this->gui.pages().settings.refresh();
-}
-
 void App::updateSettings()
 {
-  // Ctrl and the numpad's + and - step the interface scale, from anywhere.
+  const int automatic = AutomaticInterfaceScale(GetScreenWidth(), GetScreenHeight());
+  this->gui.pages().settings.setAutomaticScale(automatic);
+
+  // Ctrl and the numpad's + and - step the interface scale, from anywhere --
+  // from the automatic one, which they leave for a manual one, as Factorio's
+  // do; Ctrl and numpad 0 go back to automatic. Kept and applied at once,
+  // unless the settings page is up: there it is one more change to the
+  // page's draft, which only Confirm keeps.
   if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
-    const int steps = int(IsKeyPressed(KEY_KP_ADD)) - int(IsKeyPressed(KEY_KP_SUBTRACT));
-    if (steps != 0) {
-      int& scale = this->settings.graphics.interfaceScale;
-      scale = ClampedInterfaceScale(scale + steps * Settings::Graphics::SCALE_STEP);
-      this->gui.pages().settings.refresh();
-      // Kept at once -- unless the settings page is up, where it is one more
-      // change that Save or Back decides on.
-      if (this->gui.pages().current() != ui::Pages::Page::Settings) this->settings.save();
+    const bool onPage = this->gui.pages().current() == ui::Pages::Page::Settings;
+    Settings::Graphics& graphics = onPage ? this->gui.pages().settings.draft().graphics : this->settings.graphics;
+    const int  steps = int(IsKeyPressed(KEY_KP_ADD)) - int(IsKeyPressed(KEY_KP_SUBTRACT));
+    const bool reset = IsKeyPressed(KEY_KP_0);
+    if (steps != 0 || (reset && !graphics.automaticScale)) {
+      if (reset) {
+        graphics.automaticScale = true;
+      } else {
+        const int from          = graphics.automaticScale ? automatic : graphics.interfaceScale;
+        graphics.interfaceScale = ClampedInterfaceScale(from + steps * Settings::Graphics::SCALE_STEP);
+        graphics.automaticScale = false;
+      }
+      if (onPage) this->gui.pages().settings.refresh();
+      else        this->settings.save();
     }
+  }
+  const Settings::Graphics& graphics = this->settings.graphics;
+
+  // The scale drawn at: on automatic, it follows the window as it is resized.
+  if (const int scale = EffectiveInterfaceScale(graphics, GetScreenWidth(), GetScreenHeight()); scale != this->shownScale) {
+    this->gui.setScale(scale);
+    this->shownScale = scale;
   }
 
   this->gui.editor().setBoardOptions({ this->settings.board.coordinates, this->settings.board.moveNumbers,
                                        this->settings.board.nextMoves });
   this->gui.editor().setTreeNumbers(this->settings.board.treeNumbers);
 
-  // The settings page edits `settings` directly; bring the window and the
-  // Gui in line with whatever it changed.
+  // Bring the window and the Gui in line with the settings, when Confirm on
+  // the settings page (or the scale's shortcut) has changed them.
   if (this->settings.graphics != this->applied.graphics || this->settings.board != this->applied.board) {
-    if (this->settings.graphics.interfaceScale != this->applied.graphics.interfaceScale) {
-      this->gui.setScale(this->settings.graphics.interfaceScale);
-    }
     if (this->settings.graphics.tooltipDelay != this->applied.graphics.tooltipDelay) {
       this->gui.setTooltipDelay(this->settings.graphics.tooltipDelay);
     }
