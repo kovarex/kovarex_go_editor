@@ -45,6 +45,10 @@ enum class Command {
   PromoteMainLine,
   Undo,
   Redo,
+  // The current move and everything after it, through the clipboard.
+  Cut,
+  Copy,
+  Paste,
 
   // Files and pages.
   NewGame,

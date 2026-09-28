@@ -584,6 +584,70 @@ Outcome Game::promoteToMainLine()
   return Outcome::Done("This line is now the main line.");
 }
 
+// ---------------------------------------------------------------- the clipboard
+
+std::string Game::copyBranch() const
+{
+  sgf::Collection branch;
+  branch.games.push_back(this->cursor->clone());
+  return sgf::Write(branch);
+}
+
+Outcome Game::pasteBranch(std::string_view text)
+{
+  std::optional<sgf::Collection> pasted = sgf::Parse(text);
+  if (!pasted || pasted->games.empty()) return Outcome::Fail("There is no game record on the clipboard to paste.");
+  std::unique_ptr<sgf::Node> top = std::move(pasted->games.front());
+
+  // A whole game starts with its root. The board has to be this one's size,
+  // and what the root says about the game -- players, komi, the format --
+  // stays behind; its set-up, if any, comes along.
+  if (const std::string& size = top->get("SZ"); !size.empty()) {
+    const size_t colon = size.find(':');
+    const int    sizeW = std::atoi(size.c_str());
+    const int    sizeH = colon == std::string::npos ? sizeW : std::atoi(size.c_str() + colon + 1);
+    if (sizeW != this->w || sizeH != this->h) {
+      return Outcome::Fail("That record is for a " + std::to_string(sizeW) + "x" + std::to_string(sizeH) + " board, not this one.");
+    }
+  }
+  static constexpr const char* ABOUT_THE_GAME[] = {
+    "AP", "CA", "FF", "GM", "ST", "SZ",                                            // root
+    "AN", "BR", "BT", "CP", "DT", "EV", "GC", "GN", "HA", "KM", "ON", "OT", "PB",  // game info
+    "PC", "PW", "RE", "RO", "RU", "SO", "TM", "US", "WR", "WT",
+  };
+  for (const char* id : ABOUT_THE_GAME) top->remove(id);
+
+  // A root with nothing left in it is only where the moves hang: each line
+  // under it becomes a variation of its own.
+  std::vector<std::unique_ptr<sgf::Node>> branches;
+  if (top->properties().empty()) {
+    while (top->childCount() > 0) branches.push_back(top->detachChild(0));
+  } else {
+    branches.push_back(std::move(top));
+  }
+  if (branches.empty()) return Outcome::Fail("There are no moves on the clipboard to paste.");
+
+  this->beginEdit();
+  std::vector<sgf::Node*> added;
+  for (std::unique_ptr<sgf::Node>& branch : branches) added.push_back(&this->cursor->addChild(std::move(branch)));
+
+  int             numberBefore = 0;
+  const Position  before       = this->positionBefore(*added.front(), &numberBefore);
+  for (const sgf::Node* node : added) {
+    int number = 0;
+    if (this->firstConflict(*node, before, numberBefore, &number)) {
+      this->rollback();
+      return Outcome::Fail("Those moves don't fit here: move " + std::to_string(number) + " would land on a stone.");
+    }
+  }
+
+  this->cursor = added.front();
+  this->remember(*this->cursor);
+  this->touched(true);
+  return Outcome::Done(added.size() == 1 ? std::string()
+                                         : "Pasted " + std::to_string(added.size()) + " variations; this is the first.");
+}
+
 // ---------------------------------------------------------------- set-up and marks
 
 void Game::expandList(sgf::Node& node, std::string_view id) const

@@ -9,8 +9,9 @@
 // has the focus, a shortcut does the same thing.
 //
 // The one exception is a text box with the caret in it: there the arrows,
-// Delete and letters are for the text, so only the shortcuts with Ctrl, the
-// function keys and Esc -- which lets go of the text box -- still work.
+// Delete, letters and cut, copy and paste are for the text, so only the other
+// shortcuts with Ctrl, the function keys and Esc -- which lets go of the text
+// box -- still work.
 
 #pragma once
 

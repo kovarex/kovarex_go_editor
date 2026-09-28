@@ -5,6 +5,7 @@
 #include <ui/Theme.hpp>
 
 #include <Agui/Gui.hpp>
+#include <Agui/SystemClipboard.hpp>
 #include <Agui/Widget/Button.hpp>
 #include <Agui/Widget/DropDown.hpp>
 #include <Agui/Widget/HorizontalFlow.hpp>
@@ -225,57 +226,78 @@ agui::Widget& EditorView::buildPlayers()
   return panel;
 }
 
+agui::Button& EditorView::toolButton(Tool which)
+{
+  const ToolLook& look = *std::find_if(std::begin(TOOLS), std::end(TOOLS), [which](const ToolLook& t) { return t.tool == which; });
+  agui::Button& button = look.text[0] ? agui::button(std::string(look.text), &this->side, nullptr, &this->theme.toolButton)
+                                      : make<agui::Button>(&this->theme.toolButton);
+  button.setFocusable(false);
+  button.setToggleButton(true);
+  button.setToolTip(look.tip);
+  button.onClick(this, [this, which] { this->pending.push_back(ToolCommand(which)); });
+
+  // Pictures sit in the middle of the button. A button does not lay out
+  // its children, so they are placed by hand -- see placeIcons().
+  constexpr int ICON = 24;
+  const int     at   = (TOOL_PX - ICON) / 2;
+  if (look.icon) {
+    agui::ImageWidget& icon = Icon(this->sprites, *look.icon, ICON);
+    button << icon;
+    this->icons.push_back({ &button, &icon, at, at });
+  } else if (which == Tool::Play) {
+    // Both colours, one after the other, the pair centred together.
+    constexpr int STONE = 18, STEP = 8;
+    const int     from  = (TOOL_PX - STONE - STEP) / 2;
+    agui::ImageWidget& black = Icon(this->sprites, Sprite::BlackStone, STONE);
+    agui::ImageWidget& white = Icon(this->sprites, Sprite::WhiteStone, STONE);
+    button << black << white;
+    this->icons.push_back({ &button, &black, from, from });
+    this->icons.push_back({ &button, &white, from + STEP, from + STEP });
+  }
+  this->toolButtons[size_t(which)] = &button;
+  return button;
+}
+
+agui::Frame& EditorView::group(const char* caption)
+{
+  agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.borderedFrame);
+  frame << agui::label(caption, &this->theme.captionLabel);
+  return frame;
+}
+
+// The tools, in groups: stones, territory, and the marks and labels.
 agui::Widget& EditorView::buildTools()
 {
   agui::VerticalFlow& rows = column(4);
-  agui::HorizontalFlow* current = nullptr;
 
-  for (size_t i = 0; i < std::size(TOOLS); ++i) {
-    if (i % 9 == 0) {
-      current = &row(4);
-      rows << *current;
-    }
-    const ToolLook& look = TOOLS[i];
-    agui::Button& button = look.text[0] ? agui::button(std::string(look.text), &this->side, nullptr, &this->theme.toolButton)
-                                        : make<agui::Button>(&this->theme.toolButton);
-    button.setFocusable(false);
-    button.setToggleButton(true);
-    button.setToolTip(look.tip);
-    const Tool which = look.tool;
-    button.onClick(this, [this, which] { this->pending.push_back(ToolCommand(which)); });
+  agui::HorizontalFlow& stones = row(4);
+  for (Tool t : { Tool::Play, Tool::Black, Tool::White, Tool::Erase }) stones << this->toolButton(t);
+  agui::HorizontalFlow& territory = row(4);
+  for (Tool t : { Tool::TerritoryBlack, Tool::TerritoryWhite }) territory << this->toolButton(t);
+  agui::HorizontalFlow& top = row(4);
+  top.style.setHorizontallyStretchable(true);
+  top << (this->group("Stones") << stones) << (this->group("Territory") << territory);
+  rows << top;
 
-    // Pictures sit in the middle of the button. A button does not lay out
-    // its children, so they are placed by hand -- see placeIcons().
-    constexpr int ICON = 24;
-    const int     at   = (TOOL_PX - ICON) / 2;
-    if (look.icon) {
-      agui::ImageWidget& icon = Icon(this->sprites, *look.icon, ICON);
-      button << icon;
-      this->icons.push_back({ &button, &icon, at, at });
-    } else if (which == Tool::Play) {
-      // Both colours, one after the other, the pair centred together.
-      constexpr int STONE = 18, STEP = 8;
-      const int     from  = (TOOL_PX - STONE - STEP) / 2;
-      agui::ImageWidget& black = Icon(this->sprites, Sprite::BlackStone, STONE);
-      agui::ImageWidget& white = Icon(this->sprites, Sprite::WhiteStone, STONE);
-      button << black << white;
-      this->icons.push_back({ &button, &black, from, from });
-      this->icons.push_back({ &button, &white, from + STEP, from + STEP });
-    }
-    *current << button;
-    this->toolButtons[size_t(which)] = &button;
+  agui::HorizontalFlow& shapes = row(4);
+  for (Tool t : { Tool::Triangle, Tool::Square, Tool::Circle, Tool::Cross, Tool::Selected, Tool::Dim }) {
+    shapes << this->toolButton(t);
   }
-
-  // The Text tool's text, at the end of the second row.
+  agui::HorizontalFlow& labels = row(4);
+  for (Tool t : { Tool::Letter, Tool::Number, Tool::Text }) labels << this->toolButton(t);
+  // The Text tool's text, right after its button.
   this->labelText = &make<agui::TextField>();
   this->labelText->style.setMinimalWidth(60);
   this->labelText->style.setMaximalWidth(60);
   this->labelText->setToolTip("What the Text tool writes on the board");
   this->labelText->onTextEdit(this, [this] { this->setTool(Tool::Text); });
-  *current << *this->labelText;
+  labels << *this->labelText;
+  for (Tool t : { Tool::Arrow, Tool::Line }) labels << this->toolButton(t);
+  rows << (this->group("Marks") << shapes << labels);
   return rows;
 }
 
+// Going through the record, and changing it.
 agui::Widget& EditorView::buildNavigation()
 {
   agui::VerticalFlow& rows = column(4);
@@ -287,15 +309,22 @@ agui::Widget& EditorView::buildNavigation()
   moves << this->commandButton("<", Command::Back, "Back one move (Left, or the mouse wheel)", 44);
   moves << this->commandButton(">", Command::Forward, "Forward one move (Right, or the mouse wheel)", 44);
   moves << this->commandButton(">|", Command::End, "To the end of this line (End)");
-  rows << moves;
-
   agui::HorizontalFlow& edits = row(4);
   edits << this->commandButton("Pass", Command::Pass, "Pass (Ctrl+P)");
-  edits << this->commandButton("Delete", Command::DeleteBranch, "Delete this move and everything after it (Delete)");
-  edits << this->commandButton("Main line", Command::PromoteMainLine, "Make this line the main line (Ctrl+M)");
   edits << this->commandButton("Undo", Command::Undo, "Undo (Ctrl+Z)");
   edits << this->commandButton("Redo", Command::Redo, "Redo (Ctrl+Y)");
-  rows << edits;
+  agui::HorizontalFlow& top = row(4);
+  top.style.setHorizontallyStretchable(true);
+  top << (this->group("Navigate") << moves) << (this->group("Moves") << edits);
+  rows << top;
+
+  agui::HorizontalFlow& variation = row(4);
+  variation << this->commandButton("Delete", Command::DeleteBranch, "Delete this move and everything after it (Delete)");
+  variation << this->commandButton("Main line", Command::PromoteMainLine, "Make this line the main line (Ctrl+M)");
+  variation << this->commandButton("Cut", Command::Cut, "Cut this move and everything after it (Ctrl+X)");
+  variation << this->commandButton("Copy", Command::Copy, "Copy this move and everything after it (Ctrl+C)");
+  variation << this->commandButton("Paste", Command::Paste, "Paste what was cut or copied as a new variation here (Ctrl+V)");
+  rows << (this->group("Variation") << variation);
   return rows;
 }
 
@@ -407,6 +436,26 @@ void EditorView::run(Command command)
   case Command::Redo:
     if (!this->game->redo()) this->message("Nothing to redo.", false);
     break;
+  case Command::Copy:
+    agui::SystemClipboard::copy(this->game->copyBranch());
+    this->message(this->game->current().parent() ? "Copied this move and everything after it." : "Copied the whole game.");
+    break;
+  case Command::Cut:
+    // Nothing is cut that can't be deleted: the start of the game can't.
+    if (!this->game->current().parent()) {
+      this->message("The start of the game can't be cut; Ctrl+C copies the whole game.", false);
+      break;
+    }
+    agui::SystemClipboard::copy(this->game->copyBranch());
+    this->report(this->game->deleteBranch());
+    this->message("Cut this move and everything after it.");
+    break;
+  case Command::Paste: {
+    const Outcome outcome = this->game->pasteBranch(agui::SystemClipboard::paste(false));
+    if (outcome.ok && outcome.message.empty()) this->message("Pasted as a new variation.");
+    else                                       this->report(outcome);
+    break;
+  }
   default:
     break;
   }

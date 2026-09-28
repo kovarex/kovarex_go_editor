@@ -136,6 +136,18 @@ public:
   // main line.
   Outcome promoteToMainLine();
 
+  // --- the clipboard: branches as SGF text, so they go to and from other
+  // programs as well ---
+
+  // The current node and everything after it; at the start of the game, the
+  // whole game. Cut is this and deleteBranch().
+  std::string copyBranch() const;
+  // An SGF record hung on the current node as a new variation, and the
+  // editor moved onto it. A whole game -- from a file, or another program --
+  // keeps only what isn't about the game: its moves, and any set-up in its
+  // root. Refused if the board size differs or a move lands on a stone.
+  Outcome pasteBranch(std::string_view text);
+
   // Set-up stones. `color` None clears the point; a colour that is already
   // there takes it away again. Set-up never shares a node with a move, so
   // after a move this starts a new node for it.

@@ -23,6 +23,9 @@ const std::vector<Shortcut>& AllShortcuts()
     { KEY_Z,         true,  false, Command::Undo,              true,  "Ctrl+Z",        "Undo" },
     { KEY_Y,         true,  false, Command::Redo,              true,  "Ctrl+Y",        "Redo" },
     { KEY_Z,         true,  true,  Command::Redo,              true,  "Ctrl+Shift+Z",  "Redo" },
+    { KEY_X,         true,  false, Command::Cut,               false, "Ctrl+X",        "Cut this move and everything after it" },
+    { KEY_C,         true,  false, Command::Copy,              false, "Ctrl+C",        "Copy this move and everything after it" },
+    { KEY_V,         true,  false, Command::Paste,             false, "Ctrl+V",        "Paste as a new variation here" },
     { KEY_N,         true,  false, Command::NewGame,           false, "Ctrl+N",        "New game" },
     { KEY_O,         true,  false, Command::Open,              false, "Ctrl+O",        "Open a file" },
     { KEY_S,         true,  false, Command::Save,              false, "Ctrl+S",        "Save" },
@@ -61,7 +64,9 @@ std::vector<Command> Shortcuts::poll(bool typing, bool dialog)
     const bool pressed = IsKeyPressed(s.key) || (s.repeats && IsKeyPressedRepeat(s.key));
     if (!pressed) continue;
 
-    const bool always = s.ctrl || (s.key >= KEY_F1 && s.key <= KEY_F12) || s.command == Command::Cancel;
+    // Cut, copy and paste are the text's in a text box, like the letters.
+    const bool clipboard = s.command == Command::Cut || s.command == Command::Copy || s.command == Command::Paste;
+    const bool always    = (s.ctrl && !clipboard) || (s.key >= KEY_F1 && s.key <= KEY_F12) || s.command == Command::Cancel;
     if (typing && !always) continue;
     if (dialog && s.command != Command::Cancel) continue;
 

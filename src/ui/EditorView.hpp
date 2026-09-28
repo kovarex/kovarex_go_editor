@@ -82,6 +82,11 @@ private:
   agui::Widget& buildNode();
 
   agui::Button& commandButton(const char* text, Command command, const char* tip, int width = 0);
+  // The button that picks `which` tool, as TOOLS describes it.
+  agui::Button& toolButton(Tool which);
+  // A bordered frame round a group of buttons, as the settings page has, with
+  // the group's name at its top.
+  agui::Frame& group(const char* caption);
   void setTool(Tool tool);
 
   void refresh();
