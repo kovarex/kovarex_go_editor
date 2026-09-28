@@ -140,6 +140,30 @@ Exec( 'FontBold' )
   .ExecArguments  = '"%1" "%2" FONT_BOLD_TTF ui'
 }
 
+// Icons of Factorio's own (its utility sprites, from data/core/graphics/icons/mip):
+// the info mark after a name with a tooltip, and the reset button's arrow.
+Exec( 'IconInfo' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\icons\info-blue.png'
+  .ExecOutput     = 'build\generated\IconInfo.cpp'
+  .ExecArguments  = '"%1" "%2" ICON_INFO_PNG ui'
+}
+Exec( 'IconReset' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\icons\reset.png'
+  .ExecOutput     = 'build\generated\IconReset.cpp'
+  .ExecArguments  = '"%1" "%2" ICON_RESET_PNG ui'
+}
+Exec( 'IconResetWhite' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\icons\reset-white.png'
+  .ExecOutput     = 'build\generated\IconResetWhite.cpp'
+  .ExecArguments  = '"%1" "%2" ICON_RESET_WHITE_PNG ui'
+}
+
 // Agui is a pile of small files that rarely change: compile it as a few
 // unity blobs instead of ~100 separate translation units.
 Unity( 'Agui-Unity' )
@@ -196,9 +220,12 @@ ForEach( .Cfg in .Configs )
     .CompilerInputPath  = 'src\'
     .CompilerInputPattern = '*.cpp'
     .CompilerInputFiles = { 'build\generated\GuiAtlas.cpp', 'build\generated\FontRegular.cpp',
-                            'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp' }
+                            'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp',
+                            'build\generated\IconInfo.cpp', 'build\generated\IconReset.cpp',
+                            'build\generated\IconResetWhite.cpp' }
     .CompilerOutputPath = '$Out$\obj\goeditor\'
-    .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold' }
+    .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold',
+                              'IconInfo', 'IconReset', 'IconResetWhite' }
   }
 
   Executable( 'goeditor-$Config$' )

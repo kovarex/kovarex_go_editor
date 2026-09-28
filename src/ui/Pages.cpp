@@ -7,10 +7,10 @@
 
 namespace ui {
 
-Pages::Pages(agui::Gui& gui, Theme& theme, const GoSprites& sprites, Settings& config)
+Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
     : newGame(theme, config.newGame, [this] { this->finish(Action::StartGame); }, [this] { this->finish(Action::Back); })
     , gameInfo(theme, [this] { this->finish(Action::ApplyGameInfo); }, [this] { this->finish(Action::Back); })
-    , settings(theme, sprites, config, [this] { this->pending = Action::Associate; }, [this] { this->finish(Action::SaveSettings); },
+    , settings(theme, config, [this] { this->pending = Action::Associate; }, [this] { this->finish(Action::SaveSettings); },
                [this] { this->finish(Action::DiscardSettings); })
     , help(theme, [this] { this->finish(Action::Back); })
     , files(theme,

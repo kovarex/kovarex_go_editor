@@ -189,49 +189,6 @@ void Filled(Canvas& canvas, Rgba color, const Shape& distance)
   });
 }
 
-// Negative inside the triangle abc, positive outside: the distance to its
-// nearest edge either way.
-float FilledTriangle(float px, float py, float ax, float ay, float bx, float by, float cx, float cy)
-{
-  const auto side = [](float x0, float y0, float x1, float y1, float x, float y) {
-    return (x1 - x0) * (y - y0) - (y1 - y0) * (x - x0);
-  };
-  const float d1 = side(ax, ay, bx, by, px, py);
-  const float d2 = side(bx, by, cx, cy, px, py);
-  const float d3 = side(cx, cy, ax, ay, px, py);
-  const bool  inside = (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
-  const float edge = std::min({ Segment(px, py, ax, ay, bx, by), Segment(px, py, bx, by, cx, cy), Segment(px, py, cx, cy, ax, ay) });
-  return inside ? -edge : edge;
-}
-
-// Factorio's reset icon: an arrow going most of the way round a circle,
-// clockwise, its head at the top.
-float ResetArrow(float x, float y)
-{
-  constexpr float HALF_TURN = 3.14159265f;  // pi; raylib has PI as a macro
-  constexpr float R     = 0.5f;
-  constexpr float THICK_ARC = 0.15f;
-  // The arc runs clockwise (y is down) from `from` round to `to`, leaving a
-  // gap at the top right for the head.
-  constexpr float from = -0.25f * HALF_TURN;  // just right of the top
-  constexpr float to   = 1.45f * HALF_TURN;   // round to just left of the top
-
-  float a = std::atan2(y, x);
-  if (a < from) a += 2.0f * HALF_TURN;
-  const float arc = a <= to ? std::abs(Length(x, y) - R) - THICK_ARC * 0.5f
-                            : std::min(Length(x - R * std::cos(from), y - R * std::sin(from)),
-                                       Length(x - R * std::cos(to), y - R * std::sin(to))) - THICK_ARC * 0.5f;
-
-  // The head at the arc's end, pointing on round the circle.
-  const float ex = R * std::cos(to), ey = R * std::sin(to);
-  const float tx = -std::sin(to), ty = std::cos(to);  // clockwise tangent
-  const float nx = std::cos(to), ny = std::sin(to);   // outward
-  constexpr float LENGTH = 0.32f, WIDTH = 0.26f;
-  const float head = FilledTriangle(x, y, ex + tx * LENGTH, ey + ty * LENGTH,
-                                    ex + nx * WIDTH, ey + ny * WIDTH, ex - nx * WIDTH, ey - ny * WIDTH);
-  return std::min(arc, head);
-}
-
 float TriangleEdges(float x, float y)
 {
   // An equilateral triangle, point up, sitting a touch low so it looks
@@ -348,33 +305,6 @@ void Paint(Sprite sprite, ::Image& sheet)
   case Sprite::TreeDiagonal: {
     Canvas c(wire);
     Filled(c, wire, [](float x, float y) { return Segment(x, y, -1.2f, -1.2f, 1.2f, 1.2f) - 0.1f; });
-    c.copyTo(sheet, int(sprite));
-    break;
-  }
-  case Sprite::Reset: {
-    const Rgba ink = Rgb(24, 24, 24);
-    Canvas c(ink);
-    Filled(c, ink, ResetArrow);
-    c.copyTo(sheet, int(sprite));
-    break;
-  }
-  case Sprite::Info: {
-    // Factorio's [img=info]: a light blue disc, the letter cut out of it in white.
-    const Rgba blue  = Rgb(110, 170, 230);
-    const Rgba white = Rgb(255, 255, 255);
-    Canvas c(blue);
-    c.layer([&](float x, float y) {
-      Rgba p = blue;
-      p.a    = Cover(Length(x, y) - 0.9f);
-      return p;
-    });
-    c.layer([&](float x, float y) {
-      const float dot  = Length(x, y + 0.42f) - 0.14f;
-      const float stem = Segment(x, y, 0.0f, -0.08f, 0.0f, 0.5f) - 0.13f;
-      Rgba p = white;
-      p.a    = Cover(std::min(dot, stem));
-      return p;
-    });
     c.copyTo(sheet, int(sprite));
     break;
   }

@@ -27,7 +27,6 @@ class Gui;
 
 namespace ui {
 
-class GoSprites;
 class Theme;
 
 class Pages : public agui::GenericTargetable {
@@ -48,7 +47,7 @@ public:
   };
 
   // Adds itself to `gui`. Do this after the editor, so the pages draw on top.
-  Pages(agui::Gui& gui, Theme& theme, const GoSprites& sprites, Settings& config);
+  Pages(agui::Gui& gui, Theme& theme, Settings& config);
   ~Pages();
   Pages(const Pages&) = delete;
   Pages& operator=(const Pages&) = delete;

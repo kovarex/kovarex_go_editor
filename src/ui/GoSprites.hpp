@@ -43,10 +43,6 @@ enum class Sprite {
   TreeHorizontal,
   TreeVertical,
   TreeDiagonal,
-  // Buttons: reset to defaults, a circling arrow.
-  Reset,
-  // After a setting's name when it has a tooltip: a blue disc with an "i".
-  Info,
   Count
 };
 

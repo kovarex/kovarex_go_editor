@@ -44,13 +44,12 @@ class Widget;
 
 namespace ui {
 
-class GoSprites;
 class Theme;
 
 class SettingsPage : public agui::GenericTargetable {
 public:
-  SettingsPage(Theme& theme, const GoSprites& sprites, Settings& settings, std::function<void()> onAssociate,
-               std::function<void()> onConfirm, std::function<void()> onBack);
+  SettingsPage(Theme& theme, Settings& settings, std::function<void()> onAssociate, std::function<void()> onConfirm,
+               std::function<void()> onBack);
 
   agui::Window& root() { return this->window; }
 
@@ -102,7 +101,6 @@ private:
   Settings&        settings;
   Settings         openedWith;  // what Back goes back to
   Theme&           theme;
-  const GoSprites& sprites;
   agui::Window     window;
 
   std::vector<int> fpsLimits;  // what each of the drop-down's items means

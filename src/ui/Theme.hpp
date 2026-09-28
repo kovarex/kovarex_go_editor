@@ -106,6 +106,13 @@ public:
   // the screen pixels its text will cover, so it stays sharp.
   void setScale(float scale);
 
+  // Factorio's utility sprites, at their size in the GUI: the info mark
+  // that follows a name with a tooltip (8 x 20, as tall as a line of text,
+  // the mark in its middle), and the reset button's arrow (16 x 16), dark,
+  // or white for a disabled button.
+  std::unique_ptr<agui::Image> infoIcon() const;
+  std::unique_ptr<agui::Image> resetIcon(bool enabled) const;
+
   // A plain (not 9-sliced) picture cut from the atlas, for ImageWidget.
   // Coordinates are atlas pixels; it shows at half that size, like the rest.
   std::unique_ptr<agui::Image> atlasImage(int x, int y, int w, int h) const;
@@ -179,6 +186,7 @@ private:
   const agui::Font* pointFont(int px);
 
   std::shared_ptr<Texture2D> atlas;
+  std::shared_ptr<Texture2D> info, reset, resetWhite;  // the utility sprites
   // Pieces the atlas doesn't have (the drop-down arrow), drawn at load time.
   std::shared_ptr<Texture2D> derived;
   std::vector<std::unique_ptr<agui_raylib::RaylibImage>> images;

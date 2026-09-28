@@ -44,6 +44,14 @@ namespace ui {
 // gui.png, embedded by tools/Embed.cpp at build time.
 extern const unsigned char GUI_ATLAS_PNG[];
 extern const std::size_t   GUI_ATLAS_PNG_SIZE;
+// Factorio's utility sprites, embedded the same way. Each file is a mipmap
+// strip: the full-size picture at its left, smaller copies beside it.
+extern const unsigned char ICON_INFO_PNG[];
+extern const std::size_t   ICON_INFO_PNG_SIZE;
+extern const unsigned char ICON_RESET_PNG[];
+extern const std::size_t   ICON_RESET_PNG_SIZE;
+extern const unsigned char ICON_RESET_WHITE_PNG[];
+extern const std::size_t   ICON_RESET_WHITE_PNG_SIZE;
 
 struct Theme::Parts {
   std::optional<Piece> leftTop, top, rightTop;
@@ -432,6 +440,18 @@ std::unique_ptr<agui::Image> Theme::atlasImage(int x, int y, int w, int h) const
       this->atlas, ::Rectangle{ float(x), float(y), float(w), float(h) }, SPRITE_SCALE);
 }
 
+// utility-sprites.lua: info (16 x 40) and reset (32 x 32), both scale = 0.5.
+std::unique_ptr<agui::Image> Theme::infoIcon() const
+{
+  return std::make_unique<agui_raylib::RaylibImage>(this->info, ::Rectangle{ 0, 0, 16, 40 }, SPRITE_SCALE);
+}
+
+std::unique_ptr<agui::Image> Theme::resetIcon(bool enabled) const
+{
+  return std::make_unique<agui_raylib::RaylibImage>(enabled ? this->reset : this->resetWhite, ::Rectangle{ 0, 0, 32, 32 },
+                                                    SPRITE_SCALE);
+}
+
 // ------------------------------------------------------------------- theme
 
 Theme::Theme()
@@ -488,6 +508,17 @@ Theme::Theme()
   SetTextureFilter(*this->atlas, TEXTURE_FILTER_BILINEAR);
   SetTextureFilter(*this->derived, TEXTURE_FILTER_BILINEAR);
 
+  const auto load = [](const unsigned char* png, std::size_t size) {
+    ::Image image = LoadImageFromMemory(".png", png, int(size));
+    std::shared_ptr<Texture2D> texture = agui_raylib::MakeSharedTexture(image);
+    UnloadImage(image);
+    SetTextureFilter(*texture, TEXTURE_FILTER_BILINEAR);
+    return texture;
+  };
+  this->info       = load(ICON_INFO_PNG, ICON_INFO_PNG_SIZE);
+  this->reset      = load(ICON_RESET_PNG, ICON_RESET_PNG_SIZE);
+  this->resetWhite = load(ICON_RESET_WHITE_PNG, ICON_RESET_WHITE_PNG_SIZE);
+
   // --- root defaults: every property a widget might read is set here ---
   DefineAllRootStyles();
   this->themeBasics();
@@ -507,9 +538,7 @@ void Theme::themeBasics()
   agui::LabelStyle& label = agui::Label::defaultStyle;
   label.setFont(&this->bodyFont);
   label.setFontColor(PURE_WHITE);
-  label.setHoveredFontColor(PURE_WHITE);
   label.setGameControllerHoveredFontColor(Rgb(255, 173, 0));
-  label.setClickedFontColor(PURE_WHITE);
   label.setDisabledFontColor(WHITE_HALF);
   label.setParentHoveredColor(PURE_BLACK);
   label.setRichTextSetting(agui::RichTextSetting::Disabled);
@@ -1162,6 +1191,10 @@ void Theme::themeMenus()
   this->redToolButton.setHoveredGraphicalSet(&redHovered);
   this->redToolButton.setClickedGraphicalSet(&redClicked);
   this->redToolButton.setDisabledGraphicalSet(&redDisabled);
+  this->redToolButton.setPaddings(2, 2, 2, 2);  // size = 28
+  for (auto set : { &agui::Style::setMinimalWidth, &agui::Style::setMaximalWidth,
+                    &agui::Style::setMinimalHeight, &agui::Style::setMaximalHeight })
+      (this->redToolButton.*set)(28);
 
   // back_button (via dialog_button): a grey button whose left end is an arrow.
   // Everything in a row of dialog buttons is this tall, the ridged strip between

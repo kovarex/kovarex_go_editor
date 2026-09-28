@@ -1,7 +1,6 @@
 #include <ui/SettingsPage.hpp>
 
 #include <ui/Form.hpp>
-#include <ui/GoSprites.hpp>
 #include <ui/Theme.hpp>
 
 #include <Agui/Widget/Button.hpp>
@@ -27,12 +26,13 @@ namespace {
 // What Reset puts back: the settings a first run starts with.
 const Settings DEFAULTS{};
 
-// The reset button, a tool button, and the icon on it.
-constexpr int BUTTON_PX = 34;
-constexpr int ICON_PX   = 24;
+// The reset button (tool_button_red) and the icon on it.
+constexpr int BUTTON_PX = 28;
+constexpr int ICON_PX   = 16;
 
-// The info icon after a name that has a tooltip.
-constexpr int INFO_PX = 14;
+// The info icon after a name that has a tooltip: as tall as a line of text.
+constexpr int INFO_W = 8;
+constexpr int INFO_H = 20;
 
 // other_settings_gui_button and other_settings_slider.
 constexpr int SETTING_BUTTON_PX = 120;
@@ -59,12 +59,11 @@ std::string ResetTip(int count)
 
 }  // namespace
 
-SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& settings, std::function<void()> onAssociate,
+SettingsPage::SettingsPage(Theme& theme, Settings& settings, std::function<void()> onAssociate,
                            std::function<void()> onConfirm, std::function<void()> onBack)
     : settings(settings)
     , openedWith(settings)
     , theme(theme)
-    , sprites(sprites)
     , window(agui::GuiDirection::Vertical, "Settings")
 {
   this->window.setDragTarget(&this->window);
@@ -187,10 +186,10 @@ SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& set
   }
 
   // The subheader, and the reset button at its right end: tool_button_red
-  // with a circling arrow.
+  // with Factorio's reset arrow, dark, or white while it is disabled.
   this->reset = &make<agui::Button>(&theme.redToolButton);
   this->reset->setFocusable(false);
-  this->resetIcon = &make<agui::ImageWidget>(sprites.image(Sprite::Reset));
+  this->resetIcon = &make<agui::ImageWidget>(theme.resetIcon(true));
   this->resetIcon->scaleToKeepTheRatio = true;
   this->resetIcon->setIgnoredByInteraction(true);
   this->resetIcon->style.setMinimalWidth(ICON_PX);
@@ -256,12 +255,11 @@ agui::Widget& SettingsPage::name(const char* text, const char* tip, const agui::
 
 agui::ImageWidget& SettingsPage::info(const char* tip)
 {
-  agui::ImageWidget& icon = make<agui::ImageWidget>(this->sprites.image(Sprite::Info));
-  icon.scaleToKeepTheRatio = true;
-  icon.style.setMinimalWidth(INFO_PX);
-  icon.style.setMaximalWidth(INFO_PX);
-  icon.style.setMinimalHeight(INFO_PX);
-  icon.style.setMaximalHeight(INFO_PX);
+  agui::ImageWidget& icon = make<agui::ImageWidget>(this->theme.infoIcon());
+  icon.style.setMinimalWidth(INFO_W);
+  icon.style.setMaximalWidth(INFO_W);
+  icon.style.setMinimalHeight(INFO_H);
+  icon.style.setMaximalHeight(INFO_H);
   icon.setToolTip(tip);
   return icon;
 }
@@ -369,7 +367,10 @@ void SettingsPage::changed()
   // Nothing to reset when everything is already the default.
   const int count = int(std::count_if(this->tracked.begin(), this->tracked.end(),
                                       [](const Setting& s) { return s.differs(DEFAULTS); }));
-  if (this->reset->isEnabled() != (count != 0)) this->reset->setEnabled(count != 0);
+  if (this->reset->isEnabled() != (count != 0)) {
+    this->reset->setEnabled(count != 0);
+    this->resetIcon->setImage(this->theme.resetIcon(count != 0));
+  }
   this->reset->setToolTip(ResetTip(count));
 }
 
