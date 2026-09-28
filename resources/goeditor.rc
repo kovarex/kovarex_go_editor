@@ -1,0 +1,8 @@
+// The exe's resources: its icon (drawn by tools/make-icon.ps1).
+//
+// Named GLFW_ICON because that is the name GLFW -- which raylib opens its
+// window with -- looks for to give the window's title bar and taskbar button
+// their icon. Being the exe's only icon, it is also the one Explorer shows for
+// the exe, and index 0, which the .sgf association points at for .sgf files
+// (see app/Platform.cpp).
+GLFW_ICON ICON "icon/goeditor.ico"

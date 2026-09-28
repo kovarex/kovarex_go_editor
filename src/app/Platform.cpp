@@ -112,6 +112,20 @@ std::wstring OpenCommand()
 // which beats anything registered under Classes.
 const wchar_t* USER_CHOICE = L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.sgf\\UserChoice";
 
+// This exe as Explorer knows it in the "Open with" list -- which is also what
+// UserChoice says when that list's "Always use this app" picked it.
+std::wstring ApplicationKey()
+{
+  return L"Applications\\" + ExecutablePath().filename().wstring();
+}
+
+// Whether what the user picked with "Open with... Always" is this program:
+// under our ProgId, or under its entry in the "Open with" list.
+bool ChosenIsOurs(const std::wstring& chosen)
+{
+  return chosen == PROG_ID || chosen == ApplicationKey();
+}
+
 }  // namespace
 
 std::optional<std::string> ReadText(const std::filesystem::path& path, std::string* error)
@@ -220,24 +234,27 @@ std::vector<std::filesystem::path> CommandLineFiles()
 bool AssociateSgfFiles(std::string* error)
 {
   const std::wstring exe  = ExecutablePath().wstring();
-  const std::wstring name = ExecutablePath().filename().wstring();
+  const std::wstring icon = L"\"" + exe + L"\",0";
 
   bool ok = SetValue(L".sgf", nullptr, PROG_ID, error) &&
             SetValue(L".sgf", L"Content Type", L"application/x-go-sgf", error) &&
             SetValue(L".sgf\\OpenWithProgids", PROG_ID, L"", error) &&
             SetValue(PROG_ID, nullptr, L"Go game record", error) &&
-            SetValue(std::wstring(PROG_ID) + L"\\DefaultIcon", nullptr, L"\"" + exe + L"\",0", error) &&
+            // The exe's own icon, for the files it opens.
+            SetValue(std::wstring(PROG_ID) + L"\\DefaultIcon", nullptr, icon, error) &&
             SetValue(std::wstring(PROG_ID) + L"\\shell\\open\\command", nullptr, OpenCommand(), error) &&
-            // So it is in the "Open with" list as well, under its own name.
-            SetValue(L"Applications\\" + name + L"\\shell\\open\\command", nullptr, OpenCommand(), error) &&
-            SetValue(L"Applications\\" + name + L"\\SupportedTypes", L".sgf", L"", error);
+            // So it is in the "Open with" list as well, under its own name --
+            // and the files have its icon when it was picked from there.
+            SetValue(ApplicationKey() + L"\\shell\\open\\command", nullptr, OpenCommand(), error) &&
+            SetValue(ApplicationKey() + L"\\DefaultIcon", nullptr, icon, error) &&
+            SetValue(ApplicationKey() + L"\\SupportedTypes", L".sgf", L"", error);
   if (!ok) return false;
 
   // A choice the user made in "Open with" wins over everything above. It is
   // theirs to change, so it is only cleared when it points somewhere else --
   // and when Windows won't let it be, they are told how to change it.
   const std::wstring chosen = GetValue(HKEY_CURRENT_USER, USER_CHOICE, L"ProgId");
-  if (!chosen.empty() && chosen != PROG_ID) {
+  if (!chosen.empty() && !ChosenIsOurs(chosen)) {
     RegDeleteKeyW(HKEY_CURRENT_USER, USER_CHOICE);
     if (!GetValue(HKEY_CURRENT_USER, USER_CHOICE, L"ProgId").empty()) {
       if (error) {
@@ -255,12 +272,15 @@ bool AssociateSgfFiles(std::string* error)
 
 bool IsSgfAssociated()
 {
-  const std::wstring chosen = GetValue(HKEY_CURRENT_USER, USER_CHOICE, L"ProgId");
-  if (!chosen.empty() && chosen != PROG_ID) return false;
-  if (GetValue(HKEY_CURRENT_USER, L"Software\\Classes\\.sgf", nullptr) != PROG_ID) return false;
-  const std::wstring command =
-      GetValue(HKEY_CURRENT_USER, std::wstring(L"Software\\Classes\\") + PROG_ID + L"\\shell\\open\\command", nullptr);
-  return command == OpenCommand();
+  // What opens .sgf files: the user's own pick, if they made one, or else
+  // whatever .sgf is registered to. Either way it has to run this exe --
+  // the same name elsewhere (another build) doesn't count.
+  std::wstring progId = GetValue(HKEY_CURRENT_USER, USER_CHOICE, L"ProgId");
+  if (progId.empty()) progId = GetValue(HKEY_CURRENT_USER, L"Software\\Classes\\.sgf", nullptr);
+  if (!ChosenIsOurs(progId)) return false;
+  // HKEY_CLASSES_ROOT: the user's classes and the machine's together, as
+  // Explorer sees them -- an "Open with" entry may be in either.
+  return GetValue(HKEY_CLASSES_ROOT, progId + L"\\shell\\open\\command", nullptr) == OpenCommand();
 }
 
 bool WindowFitsOnScreen(void* windowHandle)

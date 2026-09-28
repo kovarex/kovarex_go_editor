@@ -173,6 +173,16 @@ Exec( 'IconSearch' )
   .ExecArguments  = '"%1" "%2" ICON_SEARCH_PNG ui'
 }
 
+// The exe's own resources -- its icon -- compiled by the Windows SDK's resource
+// compiler, and linked in as they are (see resources/goeditor.rc).
+Exec( 'Resources' )
+{
+  .ExecExecutable = '$WindowsSdkDir$bin\$WindowsSDKVersion$x64\rc.exe'
+  .ExecInput      = { 'resources\goeditor.rc', 'resources\icon\goeditor.ico' }
+  .ExecOutput     = 'build\generated\goeditor.res'
+  .ExecArguments  = '/nologo /I"resources" /fo"%2" "resources\goeditor.rc"'
+}
+
 // The board's wood: a photograph, CC0 from ambientCG (resources/wood/LICENSE.txt).
 Exec( 'BoardWood' )
 {
@@ -250,7 +260,8 @@ ForEach( .Cfg in .Configs )
 
   Executable( 'goeditor-$Config$' )
   {
-    .Libraries     = { 'goeditor-obj-$Config$', 'raylib-$Config$', 'agui-$Config$' }
+    // The resources count as input, so a new icon relinks the exe.
+    .Libraries     = { 'goeditor-obj-$Config$', 'raylib-$Config$', 'agui-$Config$', 'Resources' }
     .LinkerOutput  = '$Out$\kovarex_go_editor.exe'
     .LinkerOptions = '/NOLOGO /MACHINE:X64 /DEBUG /INCREMENTAL:NO /OUT:"%2" "%1"'
                    + .Subsystem
