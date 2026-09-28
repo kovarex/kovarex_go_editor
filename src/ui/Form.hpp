@@ -10,6 +10,7 @@
 #include <Agui/Widget/Filler.hpp>
 #include <Agui/Widget/HorizontalFlow.hpp>
 #include <Agui/Widget/Label.hpp>
+#include <Agui/Widget/ToggleButton.hpp>
 #include <Agui/Widget/VerticalFlow.hpp>
 #include <Agui/Widget/Window.hpp>
 
@@ -45,12 +46,15 @@ inline agui::HorizontalFlow& row(int spacing = 12)
 }
 
 // A setting's name and its control, side by side. The name column is a fixed
-// width, so the controls of a page line up under each other.
+// width, so the controls of a page line up under each other. The name of a
+// checkbox is part of it, as in a browser: clicking the name toggles the box,
+// hovering it lights the box up and shows the box's tooltip.
 inline agui::HorizontalFlow& namedRow(const char* name, agui::Widget& control, int nameWidth = 150)
 {
   agui::HorizontalFlow& flow = row();
   agui::Label& label = agui::label(name);
   label.style.setMinimalWidth(nameWidth);
+  if (dynamic_cast<agui::ToggleButton*>(&control)) label.sharesTooltipWith(&control);
   flow << label << control;
   return flow;
 }
