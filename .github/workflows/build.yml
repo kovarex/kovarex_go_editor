@@ -49,8 +49,13 @@ jobs:
           CC: gcc-12
         run: |
           cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
-          cmake --build build/linux -j "$(nproc)"
+          cmake --build build/linux -j "$(nproc)" 2>&1 | tee build.log
+          [ "${PIPESTATUS[0]}" -eq 0 ] || exit 1
           strip build/linux/kovarex_go_editor
+      # The compiler's errors on the run's page, without opening the log.
+      - name: Show the errors
+        if: failure()
+        run: grep -E "error" build.log | head -n 30 | sed 's/^/::error::/'
       # A tarball rather than the bare file, which would lose being executable.
       - name: Pack
         run: tar -czf kovarex_go_editor-linux-x64.tar.gz -C build/linux kovarex_go_editor
