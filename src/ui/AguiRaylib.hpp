@@ -208,7 +208,7 @@ public:
 private:
   void blit(const agui::Image* bmp, ::Rectangle source, ::Rectangle dest,
             const agui::Color& tint, float opacity, float rotationDeg = 0.0f,
-            ::Vector2 origin = { 0, 0 });
+            ::Vector2 origin = { 0, 0 }, agui::InvertColors invert = agui::InvertColors::False);
 
   void applyScissor();
 

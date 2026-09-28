@@ -19,6 +19,8 @@
 #include <Agui/Widget/EmptyWidget.hpp>
 
 #include <filesystem>
+#include <optional>
+#include <string>
 
 struct Settings;
 
@@ -64,6 +66,13 @@ public:
   // Gui::logic() so sizes are current.
   void layout(int screenWidth, int screenHeight);
 
+  // The search of the page that is up, if it has one: focusSearch() opens
+  // it; cancelSearch() closes it, and says whether there was one open for
+  // Esc to close rather than the page. The shortcut is for their tooltips.
+  void focusSearch();
+  bool cancelSearch();
+  void setSearchShortcut(const std::string& keys);
+
   Action takeAction();
   const std::filesystem::path& chosenFile() const { return this->chosen; }
 
@@ -76,6 +85,7 @@ public:
 
 private:
   agui::Window* window(Page page);
+  SearchBar*    search();  // the page's, if it has one
   void          finish(Action action);
 
   agui::Gui& gui;
@@ -87,6 +97,7 @@ private:
   Action                pending = Action::None;
   Page                  page    = Page::None;
   std::filesystem::path chosen;
+  std::optional<std::string> searchShortcut;  // what the search tooltips were given
   bool recentre = true;
   int  lastScreenWidth = 0, lastScreenHeight = 0;
 };

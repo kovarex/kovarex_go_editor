@@ -52,6 +52,8 @@ extern const unsigned char ICON_RESET_PNG[];
 extern const std::size_t   ICON_RESET_PNG_SIZE;
 extern const unsigned char ICON_RESET_WHITE_PNG[];
 extern const std::size_t   ICON_RESET_WHITE_PNG_SIZE;
+extern const unsigned char ICON_SEARCH_PNG[];
+extern const std::size_t   ICON_SEARCH_PNG_SIZE;
 
 struct Theme::Parts {
   std::optional<Piece> leftTop, top, rightTop;
@@ -459,6 +461,13 @@ std::unique_ptr<agui::Image> Theme::resetIcon(bool enabled) const
                                                     SPRITE_SCALE);
 }
 
+// utility-sprites.lua: search, white, 32 x 32 at no scale -- the frame
+// action button stretches it over the 24 it is.
+std::unique_ptr<agui::Image> Theme::searchIcon() const
+{
+  return std::make_unique<agui_raylib::RaylibImage>(this->search, ::Rectangle{ 0, 0, 32, 32 });
+}
+
 // ------------------------------------------------------------------- theme
 
 Theme::Theme()
@@ -496,6 +505,10 @@ Theme::Theme()
     , frameSubheadingLabel(&agui::Label::defaultStyle)
     , sliderValueField(&agui::TextField::defaultStyle)
     , notchedSlider(&agui::Slider::defaultStyle)
+    , frameActionButton(&agui::Button::defaultStyle)
+    , frameActionIcon(&agui::ImageWidget::defaultStyle)
+    , searchPopupFrame(&agui::Frame::defaultStyle)
+    , searchPopupField(&agui::TextField::defaultStyle)
     , scrollPaneUnderSubheader(&agui::ScrollPane::defaultStyle)
     , shallowFrame(&agui::Frame::defaultStyle)
     , controlTable(&agui::Table::defaultStyle)
@@ -532,6 +545,7 @@ Theme::Theme()
   this->info       = load(ICON_INFO_PNG, ICON_INFO_PNG_SIZE);
   this->reset      = load(ICON_RESET_PNG, ICON_RESET_PNG_SIZE);
   this->resetWhite = load(ICON_RESET_WHITE_PNG, ICON_RESET_WHITE_PNG_SIZE);
+  this->search     = load(ICON_SEARCH_PNG, ICON_SEARCH_PNG_SIZE);
 
   // --- root defaults: every property a widget might read is set here ---
   // For rich text's [font=...], by style.lua's names.
@@ -1442,6 +1456,51 @@ void Theme::themeBoard()
   this->sliderValueField.setMinimalWidth(120);
   this->sliderValueField.setMaximalWidth(120);
   this->sliderValueField.setHorizontalAlign(agui::HorizontalAlign::Center);
+
+  // frame_action_button, from frame_button: a 24 square button in a window's
+  // title bar, dark until hovered, its white picture black while hovered
+  // or down.
+  const Layer frameShadow = this->layer(Expand(440, 24, 8), { .outer = true });
+  const agui::ElementImageSet action         = Set(this->composition(0, 0, 8), frameShadow);
+  const agui::ElementImageSet actionHovered  = Set(this->composition(34, 17, 8), frameShadow, this->defaultGlow(GLOW));
+  const agui::ElementImageSet actionClicked  = Set(this->composition(51, 17, 8), frameShadow);
+  const agui::ElementImageSet actionDisabled = Set(this->composition(17, 17, 8), frameShadow);
+  const agui::ElementImageSet actionSelected = Set(this->composition(369, 17, 8), frameShadow);
+  const agui::ElementImageSet actionSelectedHovered = Set(this->composition(352, 17, 8), frameShadow);
+  this->frameActionButton.setDefaultGraphicalSet(&action);
+  this->frameActionButton.setHoveredGraphicalSet(&actionHovered);
+  this->frameActionButton.setClickedGraphicalSet(&actionClicked);
+  this->frameActionButton.setDisabledGraphicalSet(&actionDisabled);
+  this->frameActionButton.setSelectedGraphicalSet(&actionSelected);
+  this->frameActionButton.setSelectedHoveredGraphicalSet(&actionSelectedHovered);
+  this->frameActionButton.setSelectedClickedGraphicalSet(&actionSelected);
+  this->frameActionButton.setPaddings(0, 0, 0, 0);
+  for (auto set : { &agui::Style::setMinimalWidth, &agui::Style::setMaximalWidth,
+                    &agui::Style::setMinimalHeight, &agui::Style::setMaximalHeight })
+      (this->frameActionButton.*set)(24);
+  this->frameActionIcon.setInvertColorsOfPictureWhenHoveredOrToggled(true);
+
+  // search_popup_frame: the text field's strip, the colour of the title bar,
+  // over the title just left of the button.
+  const agui::ElementImageSet popup = Set(this->monolith({ 8, 8, 1, 1 }));
+  this->searchPopupFrame.setGraphicalSet(&popup);
+  this->searchPopupFrame.setUseHeaderFiller(false);
+  this->searchPopupFrame.setPaddings(0, 4, 0, 4);
+  this->searchPopupFrame.setRightMargin(4);
+  Under(this->searchPopupFrame.initHorizontalFlowStyle(), &agui::HorizontalFlow::defaultStyle)
+      ->setVerticalAlign(agui::VerticalAlign::Center);
+  this->searchPopupField.setMinimalWidth(104);  // search_popup_textfield
+  this->searchPopupField.setMaximalWidth(104);
+
+  // What search looks at, as style.lua has it: the names of things --
+  // labels, check boxes, radio buttons -- but not the controls beside them,
+  // nor captions, which name a group rather than a setting.
+  for (agui::Style* ignored : std::initializer_list<agui::Style*>{
+           &agui::Button::defaultStyle, &agui::DropDown::defaultStyle, &agui::TextBox::defaultStyle,
+           &agui::TextField::defaultStyle, &agui::Slider::defaultStyle, &agui::EmptyWidget::defaultStyle,
+           &agui::ImageWidget::defaultStyle, &this->captionLabel })
+      ignored->setIgnoredBySearch(true);
+  this->subheaderFrame.setNeverHiddenBySearch(true);
 
   // scroll_pane_under_subheader: no frame of its own, the panel it is in is
   // the frame.

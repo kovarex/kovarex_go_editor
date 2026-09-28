@@ -152,8 +152,13 @@ void App::handle(Command command)
   case Command::ScaleAutomatic:
     this->scale(command);
     break;
+  case Command::FocusSearch:
+    pages.focusSearch();
+    break;
   case Command::Cancel:
-    // Esc on a page is its Back button.
+    // Esc on a page first closes its search, if that is open, and then is
+    // the page's Back button.
+    if (pages.cancelSearch()) break;
     if (pages.isOpen()) {
       pages.close();
       this->after = After::None;
@@ -437,6 +442,7 @@ void App::updateSettings()
                                        this->settings.board.nextMoves });
   this->gui.editor().setTreeNumbers(this->settings.board.treeNumbers);
   this->gui.editor().setBindings(this->settings.controls);
+  this->gui.pages().setSearchShortcut(this->settings.controls.keysFor(Command::FocusSearch));
 
   // Bring the window and the Gui in line with the settings, when Confirm on
   // the settings page (or the scale's shortcut) has changed them.

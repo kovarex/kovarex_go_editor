@@ -1,8 +1,10 @@
 #include <ui/SettingsPage.hpp>
 
 #include <ui/Form.hpp>
+#include <ui/SearchBar.hpp>
 #include <ui/Theme.hpp>
 
+#include <Agui/LowercaseString.hpp>
 #include <Agui/Widget/Button.hpp>
 #include <Agui/Widget/CheckBox.hpp>
 #include <Agui/Widget/DropDown.hpp>
@@ -93,6 +95,8 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   // manual is picked.
   {
     agui::Frame& scale = this->section(content);
+    // Found as a whole, by its caption or its choices, not choice by choice.
+    scale.setAtomicSearch();
     scale << this->name("UI scale", nullptr, &this->theme.captionLabel);
 
     this->automaticScale = &make<agui::RadioButton>(std::string("Automatic"));
@@ -154,6 +158,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   // that shows its value and takes a typed one.
   {
     agui::Frame& delay = this->section(content);
+    delay.setAtomicSearch();
     const std::string tip = "How long the mouse rests on something before its tooltip shows. Hold " +
                             ShortcutText("Shift") + " to see tooltips at once, whatever this says.";
     delay << this->name("Tooltip delay", tip.c_str(), &this->theme.captionLabel);
@@ -209,6 +214,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   // --- files: an action, not a setting, so Reset leaves it be ---
   {
     agui::Frame& files = this->section(content);
+    files.setAtomicSearch();
     agui::Button& associate = agui::button("Open them with this program", &this->window, std::move(onAssociate));
     associate.style.setMinimalWidth(SETTING_BUTTON_PX);
     agui::HorizontalFlow& row = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
@@ -229,6 +235,14 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
   panel << subheader << content;
   this->window << panel;
+
+  // Search, in the title bar: what doesn't match is hidden, section by
+  // section and row by row, the way Factorio's settings windows search.
+  content.neverHideBySearch();
+  this->search = &make<SearchBar>(theme, this->window, [flow = &content](const std::string& text) {
+    flow->genericSearch(agui::LowercaseString(text));
+  });
+  this->search->keepSizeOf(panel);
 
   // dialog_buttons_horizontal_flow: Back throws the changes away, and while
   // the mouse is on it lights up what it would throw away; Confirm keeps them.
@@ -256,6 +270,8 @@ agui::Frame& SettingsPage::section(agui::VerticalFlow& content, const char* capt
 agui::Widget& SettingsPage::name(const char* text, const char* tip, const agui::LabelStyle* style)
 {
   agui::Label& label = style ? agui::label(text, style) : agui::label(text);
+  // A caption that names a setting is what search finds it by.
+  if (style == &this->theme.captionLabel) label.dontIgnoreBySearch();
   if (!tip) return label;
   // Factorio's setToolTipWithInfoIcon puts an info icon after the text, and
   // either of them shows the tooltip.
@@ -321,6 +337,7 @@ void SettingsPage::typedManualScale()
 
 void SettingsPage::open()
 {
+  this->search->clearAndHide();
   this->settings   = this->live;
   this->openedWith = this->live;
   this->refresh();

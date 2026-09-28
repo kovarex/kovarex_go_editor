@@ -30,6 +30,25 @@ agui::Color Multiply(const agui::Color& a, const agui::Color& b)
 
 bool IsFullScreen(const agui::Rectangle& r) { return r == agui::Graphics::FULL_SCREEN_RECTANGLE; }
 
+// Draws with each texel's colour inverted (its alpha kept): Agui's
+// InvertColors, which frame_action_button asks of its white icon when hovered,
+// turning it black. Made on first use, when the GL context is up.
+const ::Shader& InvertShader()
+{
+  static const ::Shader shader = LoadShaderFromMemory(nullptr, R"(#version 330
+in vec2 fragTexCoord;
+in vec4 fragColor;
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+out vec4 finalColor;
+void main()
+{
+  vec4 texel = texture(texture0, fragTexCoord);
+  finalColor = vec4(1.0 - texel.rgb, texel.a) * colDiffuse * fragColor;
+})");
+  return shader;
+}
+
 // A piece drawn bigger than its texels (the 1-texel middle of a 9-slice, say)
 // is sampled between texel centres all the way across, so bilinear filtering
 // blends in the texels around it -- a flat panel turns into a gradient of its
@@ -353,7 +372,7 @@ void RaylibGraphics::applyScissor()
 
 void RaylibGraphics::blit(const agui::Image* bmp, ::Rectangle source, ::Rectangle dest,
                           const agui::Color& imageTint, float opacity, float rotationDeg,
-                          ::Vector2 origin)
+                          ::Vector2 origin, agui::InvertColors invert)
 {
   const auto* img = static_cast<const RaylibImage*>(bmp);
   if (!img || dest.width == 0 || dest.height == 0) return;
@@ -378,8 +397,11 @@ void RaylibGraphics::blit(const agui::Image* bmp, ::Rectangle source, ::Rectangl
   // Compared in screen pixels: that is where the stretching happens.
   KeepSamplesInside(source.x, source.width, dest.width * this->viewScale);
   KeepSamplesInside(source.y, source.height, dest.height * this->viewScale);
+  const bool inverted = invert == agui::InvertColors::True;
+  if (inverted) BeginShaderMode(InvertShader());
   DrawTexturePro(img->texture(), source, dest, origin, rotationDeg,
                  ToRaylib(Multiply(Multiply(imageTint, img->tint()), this->tint), opacity));
+  if (inverted) EndShaderMode();
 }
 
 void RaylibGraphics::drawImage(const agui::Image* bmp, const agui::Point& position,
@@ -402,39 +424,39 @@ void RaylibGraphics::drawTintedImage(const agui::Image* bmp, const agui::Point& 
 }
 
 void RaylibGraphics::drawImage(const agui::Image* bmp, const agui::Point& position,
-                               const float& opacity, agui::InvertColors)
+                               const float& opacity, agui::InvertColors invert)
 {
   if (!bmp) return;
-  this->drawScaledImage(bmp, position, bmp->getDimension(), opacity);
+  this->drawScaledImage(bmp, position, bmp->getDimension(), opacity, invert);
 }
 
 void RaylibGraphics::drawScaledImage(const agui::Image* bmp, const agui::Point& position,
                                      const agui::Dimension& scale, const float& opacity,
-                                     agui::InvertColors)
+                                     agui::InvertColors invert)
 {
-  this->drawScaledTintedImage(bmp, position, scale, agui::Color(1, 1, 1, 1), opacity);
+  this->drawScaledTintedImage(bmp, position, scale, agui::Color(1, 1, 1, 1), opacity, invert);
 }
 
 void RaylibGraphics::drawScaledImageRegion(const agui::Image* bmp, const agui::Point& position,
                                            const agui::Dimension& scale,
                                            const agui::Rectangle& imageRegion,
-                                           const float& opacity, agui::InvertColors)
+                                           const float& opacity, agui::InvertColors invert)
 {
   if (!bmp) return;
   const ::Rectangle src = static_cast<const RaylibImage*>(bmp)->texels(
       float(imageRegion.x), float(imageRegion.y), float(imageRegion.width), float(imageRegion.height));
   this->blit(bmp, src, { float(position.x), float(position.y), float(scale.width), float(scale.height) },
-       agui::Color(1, 1, 1, 1), opacity);
+       agui::Color(1, 1, 1, 1), opacity, 0.0f, { 0, 0 }, invert);
 }
 
 void RaylibGraphics::drawScaledTintedImage(const agui::Image* bmp, const agui::Point& position,
                                            const agui::Dimension& scale, const agui::Color& t,
-                                           const float& opacity, agui::InvertColors)
+                                           const float& opacity, agui::InvertColors invert)
 {
   if (!bmp) return;
   this->blit(bmp, static_cast<const RaylibImage*>(bmp)->region(),
        { float(position.x), float(position.y), float(scale.width), float(scale.height) }, t,
-       opacity);
+       opacity, 0.0f, { 0, 0 }, invert);
 }
 
 void RaylibGraphics::drawScaledRotatedTintedImage(const agui::Image* bmp, double centerX,

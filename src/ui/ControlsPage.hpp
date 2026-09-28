@@ -23,6 +23,7 @@
 #include <Agui/Widget/Window.hpp>
 
 #include <functional>
+#include <string>
 #include <vector>
 
 namespace agui {
@@ -35,6 +36,7 @@ class Widget;
 
 namespace ui {
 
+class SearchBar;
 class Theme;
 
 class ControlsPage : public agui::GenericTargetable {
@@ -54,6 +56,9 @@ public:
   bool waiting() const { return this->waitingFor != NONE; }
   void assign(const KeyCombo& keys);
   void stop();
+
+  // The search in its title bar.
+  SearchBar& searchBar() { return *this->search; }
 
   // How tall the page may be, in the Gui's units: the controls scroll
   // within what is left of it.
@@ -78,6 +83,11 @@ private:
   // A control's name, followed by an info icon when it has a tooltip.
   agui::Widget& name(const char* text, const char* tip);
 
+  // Hides the rows that don't match what is searched for -- by name, or by
+  // the keys on them, as Factorio's control settings search -- and the
+  // sections left with none.
+  void filter();
+
   void clicked(size_t slot, const agui::MouseEvent& event);
   // Brings every button in line with the draft: its keys, whether another
   // control has them too, and its tooltip.
@@ -92,6 +102,20 @@ private:
 
   agui::VerticalScrollPane* scroll = nullptr;
   int                       fittedTo = 0;
+
+  // A section and its rows, for search.
+  struct Row {
+    agui::Widget*              row;
+    std::string                name;
+    std::vector<agui::Widget*> keys;  // the buttons, whose text is searched too
+  };
+  struct Found {
+    agui::Widget*    section;
+    std::vector<Row> lines;
+  };
+  std::vector<Found> found;
+  SearchBar*         search = nullptr;
+  std::string        searched;
 
   std::vector<Slot> slots;
   size_t            waitingFor = NONE;  // in slots

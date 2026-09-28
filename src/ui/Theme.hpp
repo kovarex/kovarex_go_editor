@@ -19,6 +19,7 @@
 #include <Agui/Widget/EmptyWidgetStyle.hpp>
 #include <Agui/Widget/FrameStyle.hpp>
 #include <Agui/Widget/HorizontalFlowStyle.hpp>
+#include <Agui/Widget/ImageStyle.hpp>
 #include <Agui/Widget/LabelStyle.hpp>
 #include <Agui/Widget/ScrollPaneStyle.hpp>
 #include <Agui/Widget/SliderStyle.hpp>
@@ -97,6 +98,13 @@ public:
   agui::TextBoxStyle        sliderValueField;      // slider_value_textfield, other_settings_gui_textbox
   agui::SliderStyle         notchedSlider;         // notched_slider: a notch per value, a pointed knob
 
+  // The search in a window's title bar: its button, the icon on it, and the
+  // text field that opens beside it.
+  agui::ButtonStyle  frameActionButton;  // frame_action_button
+  agui::ImageStyle   frameActionIcon;    // its picture: white, black while hovered or down
+  agui::FrameStyle   searchPopupFrame;   // search_popup_frame
+  agui::TextBoxStyle searchPopupField;   // search_popup_textfield
+
   // The Controls page, as Factorio's control settings: a section per group
   // of controls, each a table of rows with the keys on two buttons.
   agui::ScrollPaneStyle scrollPaneUnderSubheader;  // scroll_pane_under_subheader, from naked_scroll_pane
@@ -130,6 +138,8 @@ public:
   // or white for a disabled button.
   std::unique_ptr<agui::Image> infoIcon() const;
   std::unique_ptr<agui::Image> resetIcon(bool enabled) const;
+  // The search button's magnifying glass, white.
+  std::unique_ptr<agui::Image> searchIcon() const;
 
   // A plain (not 9-sliced) picture cut from the atlas, for ImageWidget.
   // Coordinates are atlas pixels; it shows at half that size, like the rest.
@@ -205,7 +215,7 @@ private:
   const agui::Font* pointFont(int px);
 
   std::shared_ptr<Texture2D> atlas;
-  std::shared_ptr<Texture2D> info, reset, resetWhite;  // the utility sprites
+  std::shared_ptr<Texture2D> info, reset, resetWhite, search;  // the utility sprites
   // Pieces the atlas doesn't have (the drop-down arrow), drawn at load time.
   std::shared_ptr<Texture2D> derived;
   std::vector<std::unique_ptr<agui_raylib::RaylibImage>> images;

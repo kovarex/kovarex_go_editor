@@ -1,9 +1,13 @@
 #include <ui/ControlsPage.hpp>
 
 #include <ui/Form.hpp>
+#include <ui/SearchBar.hpp>
 #include <ui/Theme.hpp>
 
+#include <Agui/Gui.hpp>
+#include <Agui/LowercaseString.hpp>
 #include <Agui/MouseEvent.hpp>
+#include <Agui/StringMatcher.hpp>
 #include <Agui/Widget/Button.hpp>
 #include <Agui/Widget/Frame.hpp>
 #include <Agui/Widget/HorizontalFlow.hpp>
@@ -92,6 +96,12 @@ ControlsPage::ControlsPage(Theme& theme, const Settings& live, std::function<voi
   panel << subheader << *this->scroll;
   this->window << panel;
 
+  this->search = &make<SearchBar>(theme, this->window, [this](const std::string& text) {
+    this->searched = text;
+    this->filter();
+  });
+  this->search->keepSizeOf(panel);
+
   // Back throws the changes away, and while the mouse is on it lights up
   // what it would throw away; Confirm keeps them.
   agui::Button& back = agui::button("Back", &this->window,
@@ -121,6 +131,7 @@ agui::Widget& ControlsPage::section(const char* caption, ControlSection which)
 {
   // shallow_frame, its caption over a control_settings_bordered_table.
   agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.shallowFrame);
+  this->found.push_back({ &frame, {} });
   agui::HorizontalFlow& header = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
   header.style.setLeftPadding(8);
   header << agui::label(caption, &this->theme.captionLabel) << agui::pusher;
@@ -132,6 +143,7 @@ agui::Widget& ControlsPage::section(const char* caption, ControlSection which)
     if (controls[i].section != which) continue;
     agui::HorizontalFlow& line = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
     line << this->name(controls[i].name, controls[i].tip) << agui::pusher;
+    this->found.back().lines.push_back({ &line, controls[i].name, {} });
     for (bool alternative : { false, true }) {
       agui::TextButton& button = make<agui::TextButton>(&this->theme.controlButton);
       button.setFocusable(false);
@@ -142,6 +154,7 @@ agui::Widget& ControlsPage::section(const char* caption, ControlSection which)
       this->slots.push_back({ &button, i, alternative });
       const Slot& s = this->slots.back();
       this->resettable.track(button, [this, s](const Settings& other) { return this->keys(s) != this->keys(s, other); });
+      this->found.back().lines.back().keys.push_back(&button);
       line << button;
     }
     table << line;
@@ -153,6 +166,7 @@ agui::Widget& ControlsPage::section(const char* caption, ControlSection which)
 agui::Widget& ControlsPage::mouseSection()
 {
   agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.shallowFrame);
+  this->found.push_back({ &frame, {} });
   agui::HorizontalFlow& header = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
   header.style.setLeftPadding(8);
   header << agui::label("The mouse on the board", &this->theme.captionLabel) << agui::pusher;
@@ -162,10 +176,12 @@ agui::Widget& ControlsPage::mouseSection()
   for (const MouseAction& action : MOUSE) {
     agui::HorizontalFlow& line = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
     line << this->name(action.name, action.tip) << agui::pusher;
+    this->found.back().lines.push_back({ &line, action.name, {} });
     for (const char* text : { action.primary, action.alternative }) {
       agui::Button& button = agui::button(std::string(text ? text : ""), &this->window, nullptr, &this->theme.controlButton);
       button.setFocusable(false);
       button.setEnabled(false);
+      this->found.back().lines.back().keys.push_back(&button);
       line << button;
     }
     table << line;
@@ -211,6 +227,8 @@ void ControlsPage::clicked(size_t slot, const agui::MouseEvent& event)
     this->keys(this->slots[slot]) = {};
   } else {
     this->waitingFor = slot;
+    // The keys pressed now are for the button, not a text field.
+    if (agui::Gui::instance) agui::Gui::instance->clearFocus();
   }
   this->refresh();
 }
@@ -231,10 +249,29 @@ void ControlsPage::stop()
 
 void ControlsPage::open()
 {
+  this->search->clearAndHide();
   this->waitingFor = NONE;
   this->settings   = this->live;
   this->openedWith = this->live;
   this->refresh();
+}
+
+void ControlsPage::filter()
+{
+  const agui::LowercaseString wanted(this->searched);
+  const auto matches = [&wanted](std::string_view text) {
+    return agui::StringMatcher::matchesSearchPattern(text, wanted) == agui::StringMatcherResult::Match;
+  };
+  for (const Found& section : this->found) {
+    bool any = false;
+    for (const Row& line : section.lines) {
+      const bool shown = matches(line.name) ||
+                         std::any_of(line.keys.begin(), line.keys.end(), [&](agui::Widget* key) { return matches(key->getText()); });
+      if (line.row->isVisible() != shown) line.row->setVisible(shown);
+      any |= shown;
+    }
+    if (section.section->isVisible() != any) section.section->setVisible(any);
+  }
 }
 
 void ControlsPage::fit(int height)
@@ -276,6 +313,8 @@ void ControlsPage::refresh()
     if (button.style.getParent() != style) button.style.setParent(style);
   }
   this->resettable.changed();
+  // The keys on the buttons may have changed what matches.
+  if (!this->searched.empty()) this->filter();
 }
 
 }  // namespace ui

@@ -27,8 +27,8 @@ namespace ui {
 class Shortcuts {
 public:
   // Reads this frame's key presses. `typing` means a text box has the caret;
-  // `dialog` that a page is up over the editor, where only Esc (Cancel) and
-  // the interface scale apply.
+  // `dialog` that a page is up over the editor, where only Esc (Cancel), the
+  // search and the interface scale apply.
   std::vector<Command> poll(const Bindings& bindings, bool typing, bool dialog);
 
   // For the Controls page, waiting for the keys to bind: the first key

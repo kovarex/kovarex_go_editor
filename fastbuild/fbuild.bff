@@ -142,7 +142,8 @@ Exec( 'FontBold' )
 }
 
 // Icons of Factorio's own (its utility sprites, from data/core/graphics/icons/mip):
-// the info mark after a name with a tooltip, and the reset button's arrow.
+// the info mark after a name with a tooltip, the reset button's arrow, and the
+// search button's magnifying glass (data/core/graphics/icons/search.png).
 Exec( 'IconInfo' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
@@ -163,6 +164,13 @@ Exec( 'IconResetWhite' )
   .ExecInput      = 'resources\icons\reset-white.png'
   .ExecOutput     = 'build\generated\IconResetWhite.cpp'
   .ExecArguments  = '"%1" "%2" ICON_RESET_WHITE_PNG ui'
+}
+Exec( 'IconSearch' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'resources\icons\search-white.png'
+  .ExecOutput     = 'build\generated\IconSearch.cpp'
+  .ExecArguments  = '"%1" "%2" ICON_SEARCH_PNG ui'
 }
 
 // The board's wood: a photograph, CC0 from ambientCG (resources/wood/LICENSE.txt).
@@ -233,10 +241,11 @@ ForEach( .Cfg in .Configs )
     .CompilerInputFiles = { 'build\generated\GuiAtlas.cpp', 'build\generated\FontRegular.cpp',
                             'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp',
                             'build\generated\IconInfo.cpp', 'build\generated\IconReset.cpp',
-                            'build\generated\IconResetWhite.cpp', 'build\generated\BoardWood.cpp' }
+                            'build\generated\IconResetWhite.cpp', 'build\generated\IconSearch.cpp',
+                            'build\generated\BoardWood.cpp' }
     .CompilerOutputPath = '$Out$\obj\goeditor\'
     .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold',
-                              'IconInfo', 'IconReset', 'IconResetWhite', 'BoardWood' }
+                              'IconInfo', 'IconReset', 'IconResetWhite', 'IconSearch', 'BoardWood' }
   }
 
   Executable( 'goeditor-$Config$' )

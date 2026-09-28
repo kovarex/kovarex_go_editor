@@ -60,6 +60,9 @@ enum class Command {
   Settings,
   Controls,
 
+  // Opens the search of the page that is up, or puts the caret back in it.
+  FocusSearch,
+
   // Esc: closes a page, lets go of a text box, or drops a half-drawn arrow.
   Cancel,
 

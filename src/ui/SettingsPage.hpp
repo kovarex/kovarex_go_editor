@@ -48,6 +48,7 @@ class Widget;
 
 namespace ui {
 
+class SearchBar;
 class Theme;
 
 class SettingsPage : public agui::GenericTargetable {
@@ -72,6 +73,9 @@ public:
   // What the automatic interface scale works out to for the window as it is,
   // for the label on its choice. Cheap when it hasn't changed.
   void setAutomaticScale(int percent);
+
+  // The search in its title bar.
+  SearchBar& searchBar() { return *this->search; }
 
   // What the line under the association button says.
   void setAssociation(const std::string& text, bool good);
@@ -104,6 +108,7 @@ private:
   Theme&           theme;
   agui::Window     window;
   Resettable       resettable;
+  SearchBar*       search = nullptr;
 
   std::vector<int> fpsLimits;  // what each of the drop-down's items means
   agui::DropDown*  mode              = nullptr;

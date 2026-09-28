@@ -1,6 +1,7 @@
 #include <ui/Pages.hpp>
 
 #include <app/Settings.hpp>
+#include <ui/SearchBar.hpp>
 #include <ui/Theme.hpp>
 
 #include <Agui/Gui.hpp>
@@ -90,6 +91,34 @@ void Pages::layout(int screenWidth, int screenHeight)
     this->recentre = false;
   }
   shown->ensureWholeWindowIsOnScreen();
+}
+
+SearchBar* Pages::search()
+{
+  switch (this->page) {
+  case Page::Settings: return &this->settings.searchBar();
+  case Page::Controls: return &this->controls.searchBar();
+  default:             return nullptr;
+  }
+}
+
+void Pages::focusSearch()
+{
+  if (SearchBar* bar = this->search()) bar->focusSearch();
+}
+
+bool Pages::cancelSearch()
+{
+  SearchBar* bar = this->search();
+  return bar && bar->clearAndHide();
+}
+
+void Pages::setSearchShortcut(const std::string& keys)
+{
+  if (this->searchShortcut == keys) return;
+  this->searchShortcut = keys;
+  this->settings.searchBar().setShortcut(keys);
+  this->controls.searchBar().setShortcut(keys);
 }
 
 Pages::Action Pages::takeAction()
