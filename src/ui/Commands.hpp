@@ -49,6 +49,11 @@ enum class Command {
   Cut,
   Copy,
   Paste,
+  // The whole game turned a quarter, or mirrored.
+  RotateLeft,
+  RotateRight,
+  FlipHorizontal,
+  FlipVertical,
 
   // Files and pages.
   NewGame,

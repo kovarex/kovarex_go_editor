@@ -305,6 +305,61 @@ float CrossLines(float x, float y)
   return std::min(Segment(x, y, -H, -H, H, H), Segment(x, y, -H, H, H, -H));
 }
 
+// --- the Board buttons' icons ---
+
+// A filled triangle, as a signed distance: negative inside.
+float TriangleFill(float x, float y, float ax, float ay, float bx, float by, float cx, float cy)
+{
+  const float edge = std::min({ Segment(x, y, ax, ay, bx, by), Segment(x, y, bx, by, cx, cy), Segment(x, y, cx, cy, ax, ay) });
+  const auto  side = [x, y](float px, float py, float qx, float qy) { return (qx - px) * (y - py) - (qy - py) * (x - px); };
+  const float s1 = side(ax, ay, bx, by), s2 = side(bx, by, cx, cy), s3 = side(cx, cy, ax, ay);
+  const bool  inside = (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+  return inside ? -edge : edge;
+}
+
+// A clockwise arrow round the centre, three quarters of a circle open at the
+// top, as a signed distance: its line THICK wide, and its head.
+float TurnClockwise(float x, float y)
+{
+  constexpr float R  = 0.5f;
+  // Angles as the picture has them, y down: growing clockwise. (PI is raylib's.)
+  constexpr float FROM = -0.25f * PI;  // up and to the right
+  constexpr float TO   = FROM + 1.4f * PI;
+  float a = std::atan2(y, x);
+  while (a < FROM) a += 2 * PI;
+  const float line = a <= TO ? std::abs(Length(x, y) - R)
+                             : std::min(Length(x - R * std::cos(FROM), y - R * std::sin(FROM)),
+                                        Length(x - R * std::cos(TO), y - R * std::sin(TO)));
+  // The head, at the end the arrow goes round to, pointing on round.
+  const float ex = R * std::cos(TO), ey = R * std::sin(TO);
+  const float tx = -std::sin(TO), ty = std::cos(TO);  // the way round
+  const float nx = std::cos(TO), ny = std::sin(TO);   // outwards
+  const float head = TriangleFill(x, y, ex + tx * 0.3f, ey + ty * 0.3f,          //
+                                  ex + nx * 0.22f - tx * 0.02f, ey + ny * 0.22f - ty * 0.02f,
+                                  ex - nx * 0.22f - tx * 0.02f, ey - ny * 0.22f - ty * 0.02f);
+  return std::min(line - THICK * 0.5f, head);
+}
+
+// A mirror: a dashed axis down the middle, a solid triangle on the left and
+// its outline mirrored on the right.
+float MirrorSolid(float x, float y)
+{
+  return TriangleFill(x, y, -0.16f, -0.5f, -0.16f, 0.5f, -0.8f, 0.5f);
+}
+float MirrorOutline(float x, float y)
+{
+  const float ax = 0.16f, ay = -0.5f, bx = 0.16f, by = 0.5f, cx = 0.8f, cy = 0.5f;
+  return std::min({ Segment(x, y, ax, ay, bx, by), Segment(x, y, bx, by, cx, cy), Segment(x, y, cx, cy, ax, ay) }) -
+         THICK * 0.4f;
+}
+float MirrorAxis(float x, float y)
+{
+  // Dashes a fifth of the height long, with gaps as long between.
+  const float phase = std::fmod(y + 1.0f, 0.3f);
+  const float dash  = std::abs(phase - 0.1f) - 0.08f;
+  return std::max(std::abs(x) - THICK * 0.3f, std::max(dash, std::abs(y) - 0.7f));
+}
+
 void Paint(Sprite sprite, ::Image& sheet)
 {
   const Rgba dark  = Rgb(18, 18, 18);
@@ -400,6 +455,28 @@ void Paint(Sprite sprite, ::Image& sheet)
   case Sprite::TreeDiagonal: {
     Canvas c(wire);
     Filled(c, wire, [](float x, float y) { return Segment(x, y, -1.2f, -1.2f, 1.2f, 1.2f) - 0.1f; });
+    c.copyTo(sheet, int(sprite));
+    break;
+  }
+  case Sprite::RotateLeft:
+  case Sprite::RotateRight: {
+    const bool left = sprite == Sprite::RotateLeft;
+    Canvas c(dark);
+    Filled(c, dark, [left](float x, float y) { return TurnClockwise(left ? -x : x, y); });
+    c.copyTo(sheet, int(sprite));
+    break;
+  }
+  case Sprite::FlipHorizontal:
+  case Sprite::FlipVertical: {
+    // Drawn for the horizontal mirror; the vertical one is it turned a quarter.
+    const bool across = sprite == Sprite::FlipHorizontal;
+    const auto turned = [across](float (*shape)(float, float)) {
+      return [across, shape](float x, float y) { return across ? shape(x, y) : shape(y, -x); };
+    };
+    Canvas c(dark);
+    Filled(c, dark, turned(MirrorSolid));
+    Filled(c, dark, turned(MirrorOutline));
+    Filled(c, dark, turned(MirrorAxis));
     c.copyTo(sheet, int(sprite));
     break;
   }

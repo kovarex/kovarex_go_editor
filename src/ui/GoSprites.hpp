@@ -54,6 +54,11 @@ enum class Sprite {
   TreeHorizontal,
   TreeVertical,
   TreeDiagonal,
+  // The side panel's Board buttons: turning and mirroring the whole game.
+  RotateLeft,
+  RotateRight,
+  FlipHorizontal,
+  FlipVertical,
   Count
 };
 

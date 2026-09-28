@@ -471,7 +471,13 @@ void BoardView::place()
 
 void BoardView::refresh()
 {
-  if (!this->game || this->points.empty()) return;
+  if (!this->game) return;
+  // Turning a rectangular board, or undoing that, swaps its sides.
+  if (this->game->width() != this->columns || this->game->height() != this->rows) {
+    this->build();
+    this->dirty = true;
+  }
+  if (this->points.empty()) return;
   if (!this->dirty && this->shownRevision == this->game->revision()) return;
   this->dirty         = false;
   this->shownRevision = this->game->revision();

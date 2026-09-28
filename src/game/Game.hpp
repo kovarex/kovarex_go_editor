@@ -52,6 +52,9 @@ struct Outcome {
   static Outcome Done(std::string what = {}) { return { true, std::move(what) }; }
 };
 
+// Ways the whole board can be turned or mirrored.
+enum class BoardTransform { RotateLeft, RotateRight, FlipHorizontal, FlipVertical };
+
 // A new game, as the New game page sets it up.
 struct GameSetup {
   int         width    = 19;
@@ -135,6 +138,12 @@ public:
   // Makes the line to the current node everyone's first child, so it is the
   // main line.
   Outcome promoteToMainLine();
+
+  // The whole game turned a quarter or mirrored: every move, set-up stone,
+  // mark, label, arrow and line in every variation. A rectangular board
+  // turned has its sides swapped. For a game recorded from the other side,
+  // or to put the corner the game starts in where the player expects it.
+  Outcome transform(BoardTransform how);
 
   // --- the clipboard: branches as SGF text, so they go to and from other
   // programs as well ---

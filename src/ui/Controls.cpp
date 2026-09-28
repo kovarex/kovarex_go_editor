@@ -112,6 +112,10 @@ const std::vector<Control>& AllControls()
     { "cut",            Command::Cut,             "Cut the move",          WHOLE_BRANCH, S::Editing, false, CtrlKey(KEY_X) },
     { "copy",           Command::Copy,            "Copy the move",         WHOLE_BRANCH, S::Editing, false, CtrlKey(KEY_C) },
     { "paste",          Command::Paste,           "Paste a variation",     "What was cut or copied, as a new variation from this move.", S::Editing, false, CtrlKey(KEY_V) },
+    { "rotate-left",     Command::RotateLeft,     "Rotate the board 90 degrees left", "The whole game, every move and mark in it.", S::Editing, false, NONE },
+    { "rotate-right",    Command::RotateRight,    "Rotate the board 90 degrees right", "The whole game, every move and mark in it.", S::Editing, false, NONE },
+    { "flip-horizontal", Command::FlipHorizontal, "Flip horizontally", "The whole game, every move and mark in it.", S::Editing, false, NONE },
+    { "flip-vertical",   Command::FlipVertical,   "Flip vertically", "The whole game, every move and mark in it.", S::Editing, false, NONE },
 
     { "tool-play",            ToolCommand(Tool::Play),           "Play moves",          nullptr, S::Tools, false, Key(KEY_Q) },
     { "tool-black",           ToolCommand(Tool::Black),          "Black stones",        "Set-up stones, not moves.", S::Tools, false, Key(KEY_B) },

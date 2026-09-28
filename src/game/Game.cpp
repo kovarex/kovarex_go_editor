@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <iterator>
+#include <tuple>
 
 namespace {
 
@@ -382,6 +383,8 @@ void Game::restore(Snapshot& snapshot)
 {
   this->tree    = std::move(snapshot.tree);
   this->cursor  = this->nodeAt(snapshot.path);
+  // Turning the board can have swapped a rectangular board's sides.
+  std::tie(this->w, this->h) = BoardSize(this->root());
   this->version = snapshot.version;
   // The old nodes are gone, and the map would only point at their ghosts.
   this->lastVisited.clear();
@@ -582,6 +585,90 @@ Outcome Game::promoteToMainLine()
   }
   this->touched(true);
   return Outcome::Done("This line is now the main line.");
+}
+
+// ---------------------------------------------------------------- turning the board
+
+Outcome Game::transform(BoardTransform how)
+{
+  const int  cols  = this->w;
+  const int  rows  = this->h;
+  const bool turns = how == BoardTransform::RotateLeft || how == BoardTransform::RotateRight;
+
+  const auto map = [how, cols, rows](Point p) -> Point {
+    // Anything off the board -- a sloppy file's -- is left where it is.
+    if (p.x < 0 || p.y < 0 || p.x >= cols || p.y >= rows) return p;
+    switch (how) {
+    case BoardTransform::RotateLeft:     return { p.y, cols - 1 - p.x };
+    case BoardTransform::RotateRight:    return { rows - 1 - p.y, p.x };
+    case BoardTransform::FlipHorizontal: return { cols - 1 - p.x, p.y };
+    case BoardTransform::FlipVertical:   return { p.x, rows - 1 - p.y };
+    }
+    return p;
+  };
+  // A point, as SGF writes it; anything that isn't one stays as it is.
+  const auto point = [&map](std::string_view text) {
+    const std::optional<Point> p = FromSgf(text);
+    return p ? ToSgf(map(*p)) : std::string(text);
+  };
+  // FF[4]'s compressed rectangle, "aa:cc": its corners turned are still two
+  // opposite corners, but maybe not the top-left and bottom-right.
+  const auto rectangle = [&map](std::string_view text) {
+    const size_t               colon = text.find(':');
+    const std::optional<Point> a     = FromSgf(text.substr(0, colon));
+    const std::optional<Point> b     = FromSgf(text.substr(colon + 1));
+    if (!a || !b) return std::string(text);
+    const Point ma = map(*a), mb = map(*b);
+    return ToSgf({ std::min(ma.x, mb.x), std::min(ma.y, mb.y) }) + ":" +
+           ToSgf({ std::max(ma.x, mb.x), std::max(ma.y, mb.y) });
+  };
+
+  this->beginEdit();
+  std::vector<sgf::Node*> pending{ &this->root() };
+  while (!pending.empty()) {
+    sgf::Node& node = *pending.back();
+    pending.pop_back();
+    for (size_t i = 0; i < node.childCount(); ++i) pending.push_back(&node.child(i));
+
+    std::vector<std::string> ids;
+    for (const sgf::Property& property : node.properties()) ids.push_back(property.id);
+    for (const std::string& id : ids) {
+      std::vector<std::string> values = node.values(id);
+      const bool move  = id == "B" || id == "W";
+      const bool list  = id == "AB" || id == "AW" || id == "AE" || id == "TR" || id == "SQ" || id == "CR" ||
+                         id == "MA" || id == "SL" || id == "TB" || id == "TW" || id == "DD" || id == "VW";
+      const bool label = id == "LB";
+      const bool line  = id == "AR" || id == "LN";
+      if (!move && !list && !label && !line) continue;
+      for (std::string& value : values) {
+        const size_t colon = value.find(':');
+        if (move) {
+          if (!IsPass(value, cols, rows)) value = point(value);
+        } else if (list) {
+          value = colon == std::string::npos ? point(value) : rectangle(value);
+        } else if (colon != std::string::npos) {
+          // LB[point:text], AR[from:to] and LN[from:to].
+          value = point(std::string_view(value).substr(0, colon)) + ":" +
+                  (label ? value.substr(colon + 1) : point(std::string_view(value).substr(colon + 1)));
+        }
+      }
+      node.setValues(id, std::move(values));
+    }
+  }
+
+  if (turns && cols != rows) {
+    this->w = rows;
+    this->h = cols;
+    this->root().set("SZ", std::to_string(this->w) + ":" + std::to_string(this->h));
+  }
+
+  switch (how) {
+  case BoardTransform::RotateLeft:     return Outcome::Done("Rotated the board 90 degrees left.");
+  case BoardTransform::RotateRight:    return Outcome::Done("Rotated the board 90 degrees right.");
+  case BoardTransform::FlipHorizontal: return Outcome::Done("Flipped the board horizontally.");
+  case BoardTransform::FlipVertical:   return Outcome::Done("Flipped the board vertically.");
+  }
+  return Outcome::Done();
 }
 
 // ---------------------------------------------------------------- the clipboard

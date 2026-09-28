@@ -35,6 +35,7 @@ class TextField;
 namespace ui {
 
 class GoSprites;
+enum class Sprite;
 class Theme;
 
 class EditorView : public agui::GenericTargetable {
@@ -87,6 +88,8 @@ private:
   agui::Widget& buildNode();
 
   agui::Button& commandButton(const char* text, Command command, const char* tip, int width = 0);
+  // A tool-bar button with a picture on it that gives `command`.
+  agui::Button& iconButton(Sprite sprite, Command command, const char* tip);
   // The button that picks `which` tool, as TOOLS describes it.
   agui::Button& toolButton(Tool which);
   // A bordered frame round a group of buttons, as the settings page has, with

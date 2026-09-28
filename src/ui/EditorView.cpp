@@ -259,6 +259,21 @@ agui::Button& EditorView::toolButton(Tool which)
   return button;
 }
 
+agui::Button& EditorView::iconButton(Sprite sprite, Command command, const char* tip)
+{
+  agui::Button& button = make<agui::Button>(&this->theme.toolButton);
+  button.setFocusable(false);
+  button.onClick(this, [this, command] { this->pending.push_back(command); });
+  this->tipped.push_back({ &button, command, tip });
+  // In the middle of the button, placed by placeIcons().
+  constexpr int ICON = 24;
+  const int     at   = (TOOL_PX - ICON) / 2;
+  agui::ImageWidget& icon = Icon(this->sprites, sprite, ICON);
+  button << icon;
+  this->icons.push_back({ &button, &icon, at, at });
+  return button;
+}
+
 agui::Frame& EditorView::group(const char* caption)
 {
   agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.borderedFrame);
@@ -294,7 +309,18 @@ agui::Widget& EditorView::buildTools()
   this->labelText->onTextEdit(this, [this] { this->setTool(Tool::Text); });
   labels << *this->labelText;
   for (Tool t : { Tool::Arrow, Tool::Line }) labels << this->toolButton(t);
-  rows << (this->group("Marks") << shapes << labels);
+  // Turning and mirroring the board, beside the marks: two rows of two, so
+  // the panel grows no taller for them.
+  agui::HorizontalFlow& turns = row(4);
+  turns << this->iconButton(Sprite::RotateLeft, Command::RotateLeft, "Rotate the board 90 degrees left")
+        << this->iconButton(Sprite::RotateRight, Command::RotateRight, "Rotate the board 90 degrees right");
+  agui::HorizontalFlow& flips = row(4);
+  flips << this->iconButton(Sprite::FlipHorizontal, Command::FlipHorizontal, "Flip horizontally")
+        << this->iconButton(Sprite::FlipVertical, Command::FlipVertical, "Flip vertically");
+  agui::HorizontalFlow& marksAndBoard = row(4);
+  marksAndBoard.style.setHorizontallyStretchable(true);
+  marksAndBoard << (this->group("Marks") << shapes << labels) << (this->group("Board") << turns << flips);
+  rows << marksAndBoard;
   return rows;
 }
 
@@ -460,6 +486,10 @@ void EditorView::run(Command command)
   case Command::Pass:            this->report(this->game->pass()); break;
   case Command::DeleteBranch:    this->report(this->game->deleteBranch()); break;
   case Command::PromoteMainLine: this->report(this->game->promoteToMainLine()); break;
+  case Command::RotateLeft:      this->report(this->game->transform(BoardTransform::RotateLeft)); break;
+  case Command::RotateRight:     this->report(this->game->transform(BoardTransform::RotateRight)); break;
+  case Command::FlipHorizontal:  this->report(this->game->transform(BoardTransform::FlipHorizontal)); break;
+  case Command::FlipVertical:    this->report(this->game->transform(BoardTransform::FlipVertical)); break;
   case Command::Undo:
     if (!this->game->undo()) this->message("Nothing to undo.", false);
     break;
