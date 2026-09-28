@@ -125,9 +125,10 @@ void SearchBar::paintComponent(const agui::PaintEvent& paintEvent, const agui::P
   const int x = (this->getContentWidth() - side) / 2;
   const int y = (this->getContentHeight() - side) / 2;
   if (this->icon->getLocation().x != x || this->icon->getLocation().y != y) this->icon->setLocation(x, y);
-  // Black while hovered, which the button tells it, or while down, which it
-  // doesn't: "hovered or toggled".
-  if (this->isToggled()) this->icon->setParentHovered(true);
+  // Black while hovered or while down: Factorio's IconButton rule, worked out
+  // afresh every time. (The button only tells the icon when the mouse comes
+  // and goes, not when the search closes by Esc, which would leave it black.)
+  this->icon->setParentHovered(this->getClickStateForRendering() != ClickState::DEFAULT || this->isToggled());
   agui::Button::paintComponent(paintEvent, absolutePosition);
 }
 
