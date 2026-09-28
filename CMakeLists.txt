@@ -90,3 +90,6 @@ add_executable(kovarex_go_editor ${EDITOR_SOURCES} ${EMBEDDED})
 target_include_directories(kovarex_go_editor PRIVATE src)
 target_compile_options(kovarex_go_editor PRIVATE -Wall)
 target_link_libraries(kovarex_go_editor PRIVATE agui raylib)
+# The C++ runtime built in, so the program runs on distributions older than
+# the compiler -- whose libstdc++ they wouldn't have.
+target_link_options(kovarex_go_editor PRIVATE -static-libstdc++ -static-libgcc)
