@@ -15,8 +15,15 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <chrono>
 #include <cstdio>
+
+// The icon, embedded for the About page (see fastbuild/fbuild.bff).
+namespace ui {
+extern const unsigned char APP_ICON_PNG[];
+extern const std::size_t   APP_ICON_PNG_SIZE;
+}  // namespace ui
 
 namespace {
 
@@ -44,6 +51,14 @@ App::Window::Window(const Settings& settings)
   // saved on a bigger monitor -- opens maximized instead. That is as big as
   // it can be, and on full HD the interface still comes out at its 125%.
   if (settings.window.maximized || !platform::WindowFitsOnScreen(GetWindowHandle())) MaximizeWindow();
+
+#ifndef _WIN32
+  // Windows gives the window the exe's own icon (resources/goeditor.rc);
+  // elsewhere it is given here, from the copy embedded for the About page.
+  ::Image icon = LoadImageFromMemory(".png", ui::APP_ICON_PNG, int(ui::APP_ICON_PNG_SIZE));
+  SetWindowIcon(icon);
+  UnloadImage(icon);
+#endif
 }
 
 App::Window::~Window()

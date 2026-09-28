@@ -130,24 +130,6 @@ Parts Expand(int x, int y, int c)
   return p;
 }
 
-// style.lua: a `border` graphical set -- a `size`-square at (x, y) whose
-// `border`-wide edges keep their shape while the middle stretches.
-Parts Border(int x, int y, int size, int border)
-{
-  const int inner = size - 2 * border;
-  Parts p;
-  p.leftTop     = Piece{ x, y, border, border };
-  p.top         = Piece{ x + border, y, inner, border };
-  p.rightTop    = Piece{ x + size - border, y, border, border };
-  p.left        = Piece{ x, y + border, border, inner };
-  p.center      = Piece{ x + border, y + border, inner, inner };
-  p.right       = Piece{ x + size - border, y + border, border, inner };
-  p.leftBottom  = Piece{ x, y + size - border, border, border };
-  p.bottom      = Piece{ x + border, y + size - border, inner, border };
-  p.rightBottom = Piece{ x + size - border, y + size - border, border, border };
-  return p;
-}
-
 int Scaled(int atlasPx)
 {
   return int(std::lround(float(atlasPx) * SPRITE_SCALE));
@@ -518,6 +500,7 @@ Theme::Theme(float scale)
     , toolButton(&agui::Button::defaultStyle)
     , greenToolButton(&this->toolButton)
     , redToolButton(&this->toolButton)
+    , smallButton(&agui::Button::defaultStyle)
     , playerInputFlow(&agui::HorizontalFlow::defaultStyle)
     , frameSubheadingLabel(&agui::Label::defaultStyle)
     , sliderValueField(&agui::TextField::defaultStyle)
@@ -531,7 +514,6 @@ Theme::Theme(float scale)
     , controlTable(&agui::Table::defaultStyle)
     , controlButton(&agui::Button::defaultStyle)
     , controlConflictButton(&this->controlButton)
-    , smallButton(&agui::Button::defaultStyle)
     // style.lua's fonts: default-small, default, default-semibold, default-bold,
     // heading-2 and heading-1.
     , smallFont(FontAt(RasterPx(LineHeight(12), scale)), LineHeight(12), 0)

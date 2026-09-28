@@ -112,9 +112,19 @@ void Settings::save() const
 
 std::filesystem::path Settings::path()
 {
+#ifdef _WIN32
   if (const char* appData = std::getenv("APPDATA")) {
     return std::filesystem::path(appData) / "GoEditor" / "config.ini";
   }
+#else
+  // $XDG_CONFIG_HOME, ~/.config by default.
+  if (const char* config = std::getenv("XDG_CONFIG_HOME"); config && *config) {
+    return std::filesystem::path(config) / "GoEditor" / "config.ini";
+  }
+  if (const char* home = std::getenv("HOME")) {
+    return std::filesystem::path(home) / ".config" / "GoEditor" / "config.ini";
+  }
+#endif
   return "config.ini";
 }
 

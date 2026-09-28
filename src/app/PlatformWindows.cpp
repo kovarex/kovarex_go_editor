@@ -1,3 +1,7 @@
+// Platform.hpp on Windows. (PlatformLinux.cpp is the same on Linux; each
+// compiles to nothing on the other.)
+#ifdef _WIN32
+
 #include <app/Platform.hpp>
 
 #include <game/Sgf.hpp>
@@ -308,3 +312,5 @@ bool OpenInBrowser(const std::string& url, std::string* error)
 }
 
 }  // namespace platform
+
+#endif  // _WIN32

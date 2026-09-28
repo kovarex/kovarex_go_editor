@@ -148,9 +148,23 @@ void FilePage::enter(const std::filesystem::path& folder)
   this->where->setText(platform::ToUtf8(folder));
   this->problem->setText(std::string());
 
-  const std::wstring root = folder.root_path().wstring();
+  // The drive the folder is on: the longest of them it is inside -- on Linux,
+  // where they are / and the home folder, that is home for anything in it.
+  // Windows ignores case in paths, so that is compared ignoring it too.
+  const auto fold = [](std::wstring text) {
+#ifdef _WIN32
+    for (wchar_t& c : text) c = wchar_t(std::towlower(c));
+#endif
+    return text;
+  };
+  const std::wstring here = fold(folder.wstring());
+  size_t best = 0;
   for (size_t i = 0; i < this->drives.size(); ++i) {
-    if (_wcsicmp(this->drives[i].wstring().c_str(), root.c_str()) == 0) this->drive->setSelectedIndex(int(i));
+    const std::wstring prefix = fold(this->drives[i].wstring());
+    if (here.starts_with(prefix) && prefix.size() > best) {
+      best = prefix.size();
+      this->drive->setSelectedIndex(int(i));
+    }
   }
 }
 

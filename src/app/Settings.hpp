@@ -82,8 +82,9 @@ struct Settings {
   static Settings load();
   void            save() const;
 
-  // %APPDATA%\GoEditor\config.ini, or config.ini in the working directory
-  // where there is no %APPDATA%.
+  // %APPDATA%\GoEditor\config.ini on Windows, ~/.config/GoEditor/config.ini
+  // (or under $XDG_CONFIG_HOME) on Linux; config.ini in the working directory
+  // where there is neither.
   static std::filesystem::path path();
 };
 
