@@ -1,0 +1,75 @@
+// The game tree: every node of the record as a small button, moves left to
+// right, the main line along the top and each variation branching down off
+// the move it varies from. Click a node to go there.
+//
+// Built from widgets like the rest -- a button per node, and the lines
+// between them as stretched pictures -- on a canvas in a scroll pane. It is
+// laid out again only when nodes come or go; stepping through the game just
+// moves the highlight.
+
+#pragma once
+
+#include <game/Game.hpp>
+#include <ui/GoSprites.hpp>
+
+#include <Agui/GenericTargetable.hpp>
+#include <Agui/Widget/Button.hpp>
+#include <Agui/Widget/EmptyWidget.hpp>
+#include <Agui/Widget/ScrollPane.hpp>
+
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
+
+namespace ui {
+
+class Theme;
+
+class TreeView : public agui::GenericTargetable {
+public:
+  TreeView(Theme& theme, const GoSprites& sprites);
+  TreeView(const TreeView&) = delete;
+  TreeView& operator=(const TreeView&) = delete;
+
+  agui::ScrollPane& widget() { return this->pane; }
+
+  // The game whose tree to show, or null. Not owned.
+  void show(Game* game);
+
+  // Lays the tree out again if the record's shape changed, and keeps the
+  // current node lit and in view. Cheap when nothing changed.
+  void refresh();
+
+  // The pane's size on screen.
+  void setSize(int width, int height);
+
+private:
+  struct Placed {
+    sgf::Node* node;
+    int        column;
+    int        row;
+  };
+
+  void rebuild();
+  // Places `start` and the first-child line that follows it on the first
+  // row free all the way along, then the variations off that line.
+  void placeLine(sgf::Node* start, int column, int minRow);
+
+  Theme&           theme;
+  const GoSprites& sprites;
+
+  agui::ScrollPane   pane;
+  agui::EmptyWidget* canvas = nullptr;
+
+  Game* game = nullptr;
+
+  std::vector<Placed>                           placed;
+  std::vector<int>                              nextFree;  // the first free row, per column
+  std::unordered_map<const sgf::Node*, agui::Button*> buttons;
+  agui::Button*                                 lit = nullptr;
+
+  uint64_t shownTree     = 0;
+  uint64_t shownRevision = 0;
+};
+
+}  // namespace ui
