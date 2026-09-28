@@ -78,6 +78,13 @@ using Look  = Theme::Look;
 // style.lua: default_sprite_scale. The atlas is drawn at half its pixel size.
 constexpr float SPRITE_SCALE = 0.5f;
 
+// The pixels text `px` tall covers when the whole GUI is drawn at `scale`: what
+// its font is rasterised for, so it is sharp rather than stretched.
+int RasterPx(int px, float scale)
+{
+  return std::max(1, int(std::lround(float(px) * scale)));
+}
+
 // Colours in style.lua are 0-255 when any component is above 1, else 0-1.
 agui::Color Rgb(int r, int g, int b, int a = 255)
 {
@@ -470,7 +477,7 @@ std::unique_ptr<agui::Image> Theme::searchIcon() const
 
 // ------------------------------------------------------------------- theme
 
-Theme::Theme()
+Theme::Theme(float scale)
     : dimLabel(&agui::Label::defaultStyle)
     , headingLabel(&agui::Label::defaultStyle)
     , captionLabel(&agui::Label::defaultStyle)
@@ -517,13 +524,14 @@ Theme::Theme()
     , smallButton(&agui::Button::defaultStyle)
     // style.lua's fonts: default-small, default, default-semibold, default-bold,
     // heading-2 and heading-1.
-    , smallFont(FontAt(LineHeight(12)), LineHeight(12), 0)
-    , bodyFont(FontAt(LineHeight(14)), LineHeight(14), 0)
-    , semiboldFont(FontAt(LineHeight(14), Weight::SemiBold), LineHeight(14), 0)
-    , boldFont(FontAt(LineHeight(14), Weight::Bold), LineHeight(14), 0)
-    , headingFont(FontAt(LineHeight(15), Weight::Bold), LineHeight(15), 0)
-    , bigFont(FontAt(LineHeight(18), Weight::Bold), LineHeight(18), 0)
+    , smallFont(FontAt(RasterPx(LineHeight(12), scale)), LineHeight(12), 0)
+    , bodyFont(FontAt(RasterPx(LineHeight(14), scale)), LineHeight(14), 0)
+    , semiboldFont(FontAt(RasterPx(LineHeight(14), scale), Weight::SemiBold), LineHeight(14), 0)
+    , boldFont(FontAt(RasterPx(LineHeight(14), scale), Weight::Bold), LineHeight(14), 0)
+    , headingFont(FontAt(RasterPx(LineHeight(15), scale), Weight::Bold), LineHeight(15), 0)
+    , bigFont(FontAt(RasterPx(LineHeight(18), scale), Weight::Bold), LineHeight(18), 0)
 {
+  this->viewScale = scale;  // what the fonts above were made for
   ::Image atlasImg   = LoadImageFromMemory(".png", GUI_ATLAS_PNG, int(GUI_ATLAS_PNG_SIZE));
   ::Image derivedImg = ComposeDerived();
   this->atlas   = agui_raylib::MakeSharedTexture(atlasImg);
@@ -1607,7 +1615,7 @@ void Theme::setScale(float scale)
 
 const ::Font& Theme::raster(int px, Weight weight) const
 {
-  return FontAt(std::max(1, int(std::lround(float(px) * this->viewScale))), weight);
+  return FontAt(RasterPx(px, this->viewScale), weight);
 }
 
 }  // namespace ui

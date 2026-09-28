@@ -15,6 +15,7 @@
 #include <ui/Shortcuts.hpp>
 
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <string>
 
@@ -70,8 +71,12 @@ private:
   Settings applied  = this->settings;  // what the window was last set to
   int      shownScale = 0;             // the interface scale the GUI is drawn at
 
+  // The stones painted and the wood decoded while the window opens, which
+  // takes the graphics driver a good third of a second: begun before it.
+  std::future<ui::GoSprites::Pixels> pictures = std::async(std::launch::async, &ui::GoSprites::prepare);
+
   Window       window{ this->settings };
-  ui::GuiLayer gui{ this->settings };
+  ui::GuiLayer gui{ this->settings, this->pictures };
   ui::Shortcuts shortcuts;
 
   std::unique_ptr<Game>  game;

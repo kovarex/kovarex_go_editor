@@ -11,12 +11,16 @@
 
 namespace ui {
 
-GuiLayer::GuiLayer(Settings& settings)
+GuiLayer::GuiLayer(Settings& settings, std::future<GoSprites::Pixels>& pictures)
 {
+  // The scale the GUI will be drawn at, which the Theme rasterises its fonts
+  // for from the start rather than at 100% and then again.
+  const int percent = EffectiveInterfaceScale(settings.graphics, GetScreenWidth(), GetScreenHeight());
+
   // Theme loads fonts through Agui, so the loader has to be in place first.
   agui::Font::setFontLoader(&this->fontLoader);
-  this->theme   = std::make_unique<Theme>();
-  this->sprites = std::make_unique<GoSprites>();
+  this->theme   = std::make_unique<Theme>(float(percent) / 100.0f);
+  this->sprites = std::make_unique<GoSprites>(pictures.get());
 
   this->gui = std::make_unique<agui::Gui>();
   this->gui->setGraphics(&this->graphics);
@@ -29,7 +33,7 @@ GuiLayer::GuiLayer(Settings& settings)
   this->editorView = std::make_unique<EditorView>(*this->gui, *this->theme, *this->sprites);
   this->pageStack  = std::make_unique<Pages>(*this->gui, *this->theme, settings);
 
-  this->setScale(EffectiveInterfaceScale(settings.graphics, GetScreenWidth(), GetScreenHeight()));
+  this->setScale(percent);
   this->setTooltipDelay(settings.graphics.tooltipDelay);
 }
 

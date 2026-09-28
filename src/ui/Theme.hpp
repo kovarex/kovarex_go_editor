@@ -34,8 +34,9 @@ namespace ui {
 
 class Theme {
 public:
-  // Needs the window.
-  Theme();
+  // Needs the window. `scale` is the interface scale the GUI will be drawn
+  // at, which the fonts are rasterised for (see setScale()).
+  explicit Theme(float scale);
   Theme(const Theme&) = delete;
   Theme& operator=(const Theme&) = delete;
 

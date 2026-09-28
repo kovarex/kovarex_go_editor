@@ -8,8 +8,10 @@
 #pragma once
 
 #include <ui/AguiRaylib.hpp>
+#include <ui/GoSprites.hpp>
 
 #include <functional>
+#include <future>
 #include <memory>
 
 struct Settings;
@@ -21,14 +23,15 @@ class Gui;
 namespace ui {
 
 class EditorView;
-class GoSprites;
 class Pages;
 class Theme;
 
 class GuiLayer {
 public:
-  // Needs the window. The pages edit `settings` in place.
-  explicit GuiLayer(Settings& settings);
+  // Needs the window. The pages edit `settings` in place. `pictures` is
+  // GoSprites::prepare(), under way on another thread: it is waited for only
+  // once everything that doesn't need it is done.
+  GuiLayer(Settings& settings, std::future<GoSprites::Pixels>& pictures);
   ~GuiLayer();
   GuiLayer(const GuiLayer&) = delete;
   GuiLayer& operator=(const GuiLayer&) = delete;

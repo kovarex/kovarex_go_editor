@@ -184,12 +184,35 @@ Exec( 'Resources' )
 }
 
 // The board's wood: a photograph, CC0 from ambientCG (resources/wood/LICENSE.txt).
+// It is turned and graded to the board's colours here, by tools/PrepareWood.cpp,
+// rather than at every start-up.
+ObjectList( 'PrepareWood-Obj' )
+{
+  .CompilerOptions    = .BaseCompilerOptions + .CppOptions + ' /O2 /MT /W3 /D_CRT_SECURE_NO_WARNINGS'
+                      + ' /external:I"libraries\raylib\external"'
+  .CompilerInputFiles = { 'tools\PrepareWood.cpp' }
+  .CompilerOutputPath = 'build\tools\'
+}
+Executable( 'PrepareWood' )
+{
+  .Libraries     = { 'PrepareWood-Obj' }
+  .LinkerOutput  = 'build\tools\PrepareWood.exe'
+  .LinkerOptions = '/NOLOGO /MACHINE:X64 /SUBSYSTEM:CONSOLE /OUT:"%2" "%1"'
+}
+Exec( 'BoardWoodGraded' )
+{
+  .ExecExecutable = 'build\tools\PrepareWood.exe'
+  .ExecInput      = 'resources\wood\Wood048.jpg'
+  .ExecOutput     = 'build\generated\BoardWood.jpg'
+  .ExecArguments  = '"%1" "%2"'
+}
 Exec( 'BoardWood' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'resources\wood\Wood048.jpg'
+  .ExecInput      = 'build\generated\BoardWood.jpg'
   .ExecOutput     = 'build\generated\BoardWood.cpp'
   .ExecArguments  = '"%1" "%2" BOARD_WOOD_JPG ui'
+  .PreBuildDependencies = { 'BoardWoodGraded' }
 }
 
 // Agui is a pile of small files that rarely change: compile it as a few

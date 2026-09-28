@@ -488,75 +488,32 @@ void Paint(Sprite sprite, ::Image& sheet)
 }  // namespace
 
 // The wood: a photograph of flat-sawn wood, its grain sweeping in the long
-// arches of a board cut along the log (resources/wood/LICENSE.txt). Embedded
-// by tools/Embed.cpp at build time.
+// arches of a board cut along the log (resources/wood/LICENSE.txt), turned
+// and graded to the board's colours at build time by tools/PrepareWood.cpp
+// and embedded by tools/Embed.cpp.
 extern const unsigned char BOARD_WOOD_JPG[];
 extern const std::size_t   BOARD_WOOD_JPG_SIZE;
 
-namespace {
-
-// The photograph as the board wants it: turned so the grain runs down the
-// board, and in the board's colours -- its light wood a warm honey, its
-// grain a mid brown. Only how light each texel is, is kept of the photo's
-// own colour, stretched so its lightest and darkest (bar the odd speck)
-// span the two.
-::Image WoodGrain()
+GoSprites::Pixels GoSprites::prepare()
 {
-  ::Image image = LoadImageFromMemory(".jpg", BOARD_WOOD_JPG, int(BOARD_WOOD_JPG_SIZE));
-  if (!image.data) return GenImageColor(16, 16, ::Color{ 220, 179, 105, 255 });
-  ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
-  ImageRotateCW(&image);
-
-  auto*        pixels = static_cast<::Color*>(image.data);
-  const size_t count  = size_t(image.width) * size_t(image.height);
-  const auto   light  = [](const ::Color& c) { return 0.299f * c.r + 0.587f * c.g + 0.114f * c.b; };
-
-  std::vector<int> histogram(256, 0);
-  for (size_t i = 0; i < count; ++i) ++histogram[size_t(std::lround(light(pixels[i])))];
-  const auto percentile = [&](float fraction) {
-    size_t seen = 0;
-    for (int level = 0; level < 256; ++level) {
-      seen += size_t(histogram[size_t(level)]);
-      if (float(seen) >= fraction * float(count)) return float(level);
-    }
-    return 255.0f;
-  };
-  const float darkest = percentile(0.02f), lightest = percentile(0.98f);
-
-  const Rgba honey = Rgb(232, 198, 132);
-  const Rgba brown = Rgb(192, 146, 82);
-  for (size_t i = 0; i < count; ++i) {
-    // Squared, so the wood between the grain stays light and only the grain
-    // itself darkens.
-    const float t = std::pow(Clamp01((lightest - light(pixels[i])) / std::max(1.0f, lightest - darkest)), 1.6f);
-    const Rgba  c = Mix(honey, brown, t);
-    pixels[i]     = { static_cast<unsigned char>(std::lround(Clamp01(c.r) * 255.0f)),
-                      static_cast<unsigned char>(std::lround(Clamp01(c.g) * 255.0f)),
-                      static_cast<unsigned char>(std::lround(Clamp01(c.b) * 255.0f)), 255 };
-  }
-  return image;
+  Pixels pixels;
+  pixels.sheet = GenImageColor(SHEET_W, SHEET_H, ::Color{ 0, 0, 0, 0 });
+  for (int s = 0; s < int(Sprite::Count); ++s) Paint(Sprite(s), pixels.sheet);
+  // Left as the JPG's RGB: the texture takes it as it is.
+  pixels.wood = LoadImageFromMemory(".jpg", BOARD_WOOD_JPG, int(BOARD_WOOD_JPG_SIZE));
+  if (!pixels.wood.data) pixels.wood = GenImageColor(16, 16, ::Color{ 220, 179, 105, 255 });
+  return pixels;
 }
 
-}  // namespace
-
-GoSprites::GoSprites()
+GoSprites::GoSprites(Pixels pixels)
 {
-  ::Image pixels = GenImageColor(SHEET_W, SHEET_H, ::Color{ 0, 0, 0, 0 });
-  for (int s = 0; s < int(Sprite::Count); ++s) Paint(Sprite(s), pixels);
-  this->sheet = agui_raylib::MakeSharedTexture(pixels);
-  UnloadImage(pixels);
-
-  if (this->sheet) {
-    GenTextureMipmaps(this->sheet.get());
-    SetTextureFilter(*this->sheet, TEXTURE_FILTER_TRILINEAR);
-  }
-
-  ::Image wood = WoodGrain();
-  this->woodTexture = agui_raylib::MakeSharedTexture(wood);
-  UnloadImage(wood);
-  if (this->woodTexture) {
-    GenTextureMipmaps(this->woodTexture.get());
-    SetTextureFilter(*this->woodTexture, TEXTURE_FILTER_TRILINEAR);
+  for (auto [image, texture] : { std::pair{ &pixels.sheet, &this->sheet }, std::pair{ &pixels.wood, &this->woodTexture } }) {
+    *texture = agui_raylib::MakeSharedTexture(*image);
+    UnloadImage(*image);
+    if (*texture) {
+      GenTextureMipmaps(texture->get());
+      SetTextureFilter(**texture, TEXTURE_FILTER_TRILINEAR);
+    }
   }
 }
 

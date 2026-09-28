@@ -77,8 +77,17 @@ inline Sprite WhiteShell(unsigned seed)
 
 class GoSprites {
 public:
-  // Needs the window.
-  GoSprites();
+  // The pictures painted and the wood decoded, but not yet textures: all
+  // that needs no window, so it can be done on another thread while the
+  // window opens. Nothing is shared, so any number can run at once.
+  struct Pixels {
+    ::Image sheet{};
+    ::Image wood{};
+  };
+  static Pixels prepare();
+
+  // Makes them textures, which needs the window. Takes the images over.
+  explicit GoSprites(Pixels pixels);
 
   // A fresh image each call: an ImageWidget owns the one it is given.
   std::unique_ptr<agui::Image> image(Sprite sprite) const;
