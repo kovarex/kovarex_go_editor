@@ -528,6 +528,19 @@ void RaylibInput::pollInput()
       push(agui::KeyEvent::KEY_DOWN, key, agui::EXT_KEY_NONE, uint32_t(ch), 0);
       push(agui::KeyEvent::KEY_UP, key, agui::EXT_KEY_NONE, uint32_t(ch), 0);
     }
+
+    // Ctrl and a letter is a shortcut -- select all, copy, cut, paste -- and
+    // no character comes for it, so the letter keys go as keys of their own,
+    // with no text. Not with Alt as well: that is AltGr, which types text.
+    if ((mod.ctrl && !mod.alt) || mod.meta) {
+      for (int k = ::KEY_A; k <= ::KEY_Z; ++k) {
+        if (this->keyFilter && this->keyFilter(k)) continue;
+        const auto key = agui::KeyEnum(k);  // both spell letters in uppercase ASCII
+        if (IsKeyPressed(k))       push(agui::KeyEvent::KEY_DOWN, key, agui::EXT_KEY_NONE, 0, k);
+        if (IsKeyPressedRepeat(k)) push(agui::KeyEvent::KEY_REPEAT, key, agui::EXT_KEY_NONE, 0, k);
+        if (IsKeyReleased(k))      push(agui::KeyEvent::KEY_UP, key, agui::EXT_KEY_NONE, 0, k);
+      }
+    }
   }
 }
 
