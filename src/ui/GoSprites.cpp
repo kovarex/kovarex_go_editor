@@ -188,19 +188,19 @@ Lit Light(float x, float y)
   return { diffuse, specular };
 }
 
-// The shadow a stone casts down and to the right, soft at its edge.
+// The shadow a stone casts: a soft dark disc, in a picture SHADOW_SCALE
+// times the stone's so it has room to fade out. The board puts it under the
+// stone, shifted down and to the right.
 void Shadow(Canvas& canvas)
 {
   canvas.layer([](float x, float y) {
-    // Just inside the picture's edge: it can't draw past it.
-    const float d = Length(x - 0.05f, y - 0.07f) - STONE_R;
-    return Rgb(0, 0, 0, 0.6f * (1.0f - SmoothStep(-0.14f, 0.0f, d)));
+    const float d = Length(x, y) - STONE_R / SHADOW_SCALE;
+    return Rgb(0, 0, 0, 0.55f * (1.0f - SmoothStep(-0.14f, 0.16f, d)));
   });
 }
 
 void BlackStone(Canvas& canvas)
 {
-  Shadow(canvas);
   canvas.layer([](float x, float y) {
     // Slate: a deep, cool black, matte, with a broad soft sheen where the
     // light falls, a small brighter glint, and the stone's fine grain.
@@ -220,7 +220,6 @@ constexpr int SHELLS = int(Sprite::WhiteStone8) - int(Sprite::WhiteStone) + 1;
 
 void WhiteStone(Canvas& canvas, int shell)
 {
-  Shadow(canvas);
 
   // The shell the stone was cut from grew in rings round its hinge, well off
   // the stone: so the lines run across it in gentle arcs, one way on this
@@ -365,6 +364,12 @@ void Paint(Sprite sprite, ::Image& sheet)
     c.copyTo(sheet, int(sprite));
     break;
   }
+  case Sprite::StoneShadow: {
+    Canvas c(Rgb(0, 0, 0));
+    Shadow(c);
+    c.copyTo(sheet, int(sprite));
+    break;
+  }
   case Sprite::StarPoint: {
     const Rgba ink = Rgb(40, 28, 12);
     Canvas c(ink);
@@ -405,6 +410,44 @@ void Paint(Sprite sprite, ::Image& sheet)
 
 }  // namespace
 
+namespace {
+
+// The wood's texels a side: enough for a board filling a 4K screen.
+constexpr int WOOD = 1024;
+
+// Kaya, the wood of good boards: a warm yellow, its fine grain running
+// straight down the board in lines that drift a little, over broader bands
+// of lighter and darker wood. Quiet, so the grid and stones stay what the
+// eye sees first.
+::Image WoodGrain()
+{
+  ::Image image = GenImageColor(WOOD, WOOD, ::Color{ 0, 0, 0, 255 });
+  auto*   out   = static_cast<::Color*>(image.data);
+  const Rgba base = Rgb(224, 182, 110);
+  for (int j = 0; j < WOOD; ++j) {
+    const float v = float(j) / float(WOOD);
+    for (int i = 0; i < WOOD; ++i) {
+      const float u = float(i) / float(WOOD);
+      // Across the grain, bent a little along the board.
+      const float t     = u + 0.015f * Noise(v * 2.5f, 11) + 0.004f * Noise(v * 11.0f, 12);
+      const float fine  = 0.6f * Noise(t * 330.0f, 13) + 0.4f * Noise(t * 820.0f, 14);
+      const float broad = Noise(t * 9.0f, 15) + 0.5f * Noise(t * 31.0f, 16);
+      // Along the grain too, faintly: no board is the same all the way down.
+      const float along = Noise(v * 6.0f + t * 40.0f, 17);
+      const float shade = 1.0f + 0.035f * fine + 0.045f * broad + 0.015f * along;
+      out[size_t(j) * WOOD + size_t(i)] = {
+        static_cast<unsigned char>(std::lround(Clamp01(base.r * shade + 0.012f * broad) * 255.0f)),
+        static_cast<unsigned char>(std::lround(Clamp01(base.g * shade) * 255.0f)),
+        static_cast<unsigned char>(std::lround(Clamp01(base.b * shade - 0.01f * broad) * 255.0f)),
+        255,
+      };
+    }
+  }
+  return image;
+}
+
+}  // namespace
+
 GoSprites::GoSprites()
 {
   ::Image pixels = GenImageColor(SHEET_W, SHEET_H, ::Color{ 0, 0, 0, 0 });
@@ -416,6 +459,21 @@ GoSprites::GoSprites()
     GenTextureMipmaps(this->sheet.get());
     SetTextureFilter(*this->sheet, TEXTURE_FILTER_TRILINEAR);
   }
+
+  ::Image wood = WoodGrain();
+  this->woodTexture = agui_raylib::MakeSharedTexture(wood);
+  UnloadImage(wood);
+  if (this->woodTexture) {
+    GenTextureMipmaps(this->woodTexture.get());
+    SetTextureFilter(*this->woodTexture, TEXTURE_FILTER_TRILINEAR);
+  }
+}
+
+std::unique_ptr<agui::Image> GoSprites::wood(float u0, float v0, float u1, float v1) const
+{
+  if (!this->woodTexture) return nullptr;
+  const ::Rectangle region{ u0 * float(WOOD), v0 * float(WOOD), (u1 - u0) * float(WOOD), (v1 - v0) * float(WOOD) };
+  return std::make_unique<agui_raylib::RaylibImage>(this->woodTexture, region, 1.0f);
 }
 
 std::unique_ptr<agui::Image> GoSprites::image(Sprite sprite) const

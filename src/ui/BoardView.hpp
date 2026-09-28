@@ -53,6 +53,11 @@ public:
   void setStone(std::optional<Sprite> sprite, double opacity, const GoSprites& sprites);
   void setMark(std::optional<Sprite> sprite, double opacity, const GoSprites& sprites);
   void setLabel(const std::string& text, const agui::LabelStyle* style);
+  // The piece of the board's wood under the point, and whether to show it:
+  // a label on an empty point sits on bare wood, so the lines don't cross it
+  // out.
+  void setWood(std::unique_ptr<agui::Image> image);
+  void setBare(bool bare);
 
 protected:
   // The pictures are children, and a button does not lay its children out,
@@ -62,6 +67,11 @@ protected:
 private:
   void place();
 
+  agui::ImageWidget patch;  // the wood, over the lines
+  // Under the stone, bigger than the point and shifted down and to the
+  // right, so the shadow falls on the wood round it. The points are drawn
+  // row by row, so the stones to the right and below sit over it.
+  agui::ImageWidget shadow;
   agui::ImageWidget stone;
   agui::ImageWidget mark;
   agui::Label       label;
@@ -165,6 +175,7 @@ private:
   // the tree and goes with it.
   agui::EmptyWidget board;
 
+  agui::ImageWidget*              wood = nullptr;  // the grain, under everything
   std::vector<PointWidget*>       points;  // row by row
   std::vector<agui::EmptyWidget*> lines;   // columns, then rows
   std::vector<agui::ImageWidget*> stars;

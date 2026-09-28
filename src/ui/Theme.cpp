@@ -473,7 +473,6 @@ Theme::Theme()
     , subheaderFrame(&agui::Frame::defaultStyle)
     , borderedFrame(&agui::Frame::defaultStyle)
     , pointPlain(&this->pointBase)
-    , pointBlank(&this->pointBase)
     , pointDark(&agui::Label::defaultStyle)
     , pointLight(&this->pointDark)
     , pointDarkSmall(&this->pointDark)
@@ -1300,7 +1299,6 @@ void Theme::themeBoard()
                          &agui::ButtonStyle::setSelectedGraphicalSet, &agui::ButtonStyle::setSelectedHoveredGraphicalSet,
                          &agui::ButtonStyle::setSelectedClickedGraphicalSet };
   for (auto set : allSets) (this->pointBase.*set)(&this->none);
-  for (auto set : allSets) (this->pointBlank.*set)(&wood);
 
   // Labels on the points, dark on wood and white stones, light on black.
   const auto labelColor = [](agui::LabelStyle& label, const agui::Color& color) {

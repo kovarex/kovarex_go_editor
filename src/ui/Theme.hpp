@@ -61,7 +61,6 @@ public:
   agui::EmptyWidgetStyle boardWood;    // the board itself
   agui::EmptyWidgetStyle gridLine;     // one line of the grid
   agui::ButtonStyle      pointPlain;   // a point: see-through, the lines and stones show
-  agui::ButtonStyle      pointBlank;   // a point with a label and no stone: wood, so the text isn't crossed out by the lines
   agui::LabelStyle       pointDark;    // a label or move number on wood or on a white stone
   agui::LabelStyle       pointLight;   // ...and on a black stone
   agui::LabelStyle       pointDarkSmall;   // the same for three digits, which need a smaller font to fit

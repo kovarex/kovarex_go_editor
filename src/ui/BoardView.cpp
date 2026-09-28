@@ -91,8 +91,9 @@ PointWidget::PointWidget(const agui::ButtonStyle* style)
   this->disableFireClickOnMouseDown();
   this->setFocusable(false);
 
-  for (agui::ImageWidget* image : { &this->stone, &this->mark }) {
-    image->scaleToKeepTheRatio = true;
+  for (agui::ImageWidget* image : { &this->patch, &this->shadow, &this->stone, &this->mark }) {
+    image->scaleToKeepTheRatio = image != &this->patch;
+    image->scale               = image == &this->patch;  // its piece of the wood, stretched as the board's is
     image->setIgnoredByInteraction(true);
     image->setVisible(false);
     this->add(image);
@@ -110,6 +111,12 @@ void PointWidget::setStone(std::optional<Sprite> sprite, double opacity, const G
   this->stoneOpacity  = opacity;
   this->stone.opacity = opacity;
   this->stone.setVisible(sprite.has_value());
+  // A stone that is really there casts a shadow; a faint one -- where a
+  // variation goes, where the mouse would play -- doesn't.
+  const bool casts = sprite.has_value() && opacity > 0.5;
+  if (casts && this->shadow.getImage() == nullptr) this->shadow.setImage(sprites.image(Sprite::StoneShadow));
+  this->shadow.opacity = opacity;
+  this->shadow.setVisible(casts);
   this->place();
 }
 
@@ -134,6 +141,18 @@ void PointWidget::setLabel(const std::string& value, const agui::LabelStyle* loo
   this->place();
 }
 
+void PointWidget::setWood(std::unique_ptr<agui::Image> image)
+{
+  this->patch.setImage(std::move(image));
+}
+
+void PointWidget::setBare(bool bare)
+{
+  if (bare == this->patch.isVisible()) return;
+  this->patch.setVisible(bare);
+  this->place();
+}
+
 void PointWidget::onSizeChanged(agui::Dimension originalSize)
 {
   super::onSizeChanged(originalSize);
@@ -144,10 +163,15 @@ void PointWidget::place()
 {
   const int side = std::min(this->getWidth(), this->getHeight());
   if (side <= 0) return;
-  for (agui::ImageWidget* image : { &this->stone, &this->mark }) {
+  for (agui::ImageWidget* image : { &this->patch, &this->stone, &this->mark }) {
     if (!image->isVisible()) continue;
     Pin(*image, image->style, side, side);
     image->setLocation(0, 0);
+  }
+  if (this->shadow.isVisible()) {
+    const int px = int(std::lround(float(side) * SHADOW_SCALE));
+    Pin(this->shadow, this->shadow.style, px, px);
+    this->shadow.setLocation((side - px) / 2 + side * 7 / 100, (side - px) / 2 + side * 9 / 100);
   }
   if (this->label.isVisible()) {
     this->label.style.setMinimalWidth(side);
@@ -259,8 +283,11 @@ void BoardView::build()
   this->rows    = this->game->height();
   this->pitch   = 0;  // place() on the next layout
 
-  // In drawing order: the grid, the star points and the coordinates on the
-  // wood, the points over them, and the arrows over everything.
+  // In drawing order: the wood's grain, the grid, the star points and the
+  // coordinates on it, the points over them, and the arrows over everything.
+  this->wood = &make<agui::ImageWidget>(this->sprites.wood(), true);
+  this->wood->setIgnoredByInteraction(true);
+  this->board << *this->wood;
   for (int i = 0; i < this->columns + this->rows; ++i) {
     agui::EmptyWidget& line = make<agui::EmptyWidget>(&this->theme.gridLine);
     line.setIgnoredByInteraction(true);
@@ -363,6 +390,8 @@ void BoardView::place()
   const int boardW = this->pitch * this->columns + 2 * this->margin;
   const int boardH = this->pitch * this->rows + 2 * this->margin;
   Pin(this->board, this->board.style, boardW, boardH);
+  Pin(*this->wood, this->wood->style, boardW, boardH);
+  this->wood->setLocation(0, 0);
 
   // The grid runs through the middle of the points. The edge lines are
   // drawn heavier, as on a real board.
@@ -426,7 +455,10 @@ void BoardView::place()
     for (int i = 0; i < this->columns; ++i) {
       PointWidget& p = this->point({ i, j });
       p.triggerResize();
-      p.setLocation(this->margin + i * this->pitch, this->margin + j * this->pitch);
+      const int x = this->margin + i * this->pitch, y = this->margin + j * this->pitch;
+      p.setLocation(x, y);
+      p.setWood(this->sprites.wood(float(x) / float(boardW), float(y) / float(boardH), float(x + this->pitch) / float(boardW),
+                                   float(y + this->pitch) / float(boardH)));
     }
   }
 
@@ -528,9 +560,7 @@ void BoardView::refresh()
       const agui::LabelStyle* labelStyle = onBlack ? (small ? &this->theme.pointLightSmall : &this->theme.pointLight)
                                                    : (small ? &this->theme.pointDarkSmall : &this->theme.pointDark);
       w.setLabel(label, labelStyle);
-      // A label on an empty point sits on bare wood, so the lines don't cross it out.
-      const agui::ButtonStyle* look = (!label.empty() && stone == Stone::None) ? &this->theme.pointBlank : &this->theme.pointPlain;
-      if (w.style.getParent() != look) w.style.setParent(look);
+      w.setBare(!label.empty() && stone == Stone::None);
 
       // The mark, or the last move's ring, or the mark the tool would put down.
       std::optional<Sprite> markSprite;

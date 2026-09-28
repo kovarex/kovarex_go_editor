@@ -32,6 +32,9 @@ enum class Sprite {
   WhiteStone6,
   WhiteStone7,
   WhiteStone8,
+  // What a stone casts on the board: a soft dark disc, drawn SHADOW_SCALE
+  // times the stone's size so it has room to fade out.
+  StoneShadow,
   // Marks come in a dark version, for empty points and white stones, and a
   // light one for black stones.
   TriangleDark,
@@ -54,6 +57,9 @@ enum class Sprite {
   Count
 };
 
+// How much bigger than its stone the StoneShadow picture is drawn.
+constexpr float SHADOW_SCALE = 1.4f;
+
 // One of the white stones, always the same one for the same `seed`: a
 // point's stone keeps its looks move after move.
 inline Sprite WhiteShell(unsigned seed)
@@ -72,8 +78,15 @@ public:
   // A fresh image each call: an ImageWidget owns the one it is given.
   std::unique_ptr<agui::Image> image(Sprite sprite) const;
 
+  // The board's wood: kaya, its grain running down the board. One picture,
+  // stretched over the whole board; or the part of it from (u0, v0) to
+  // (u1, v1), in fractions of it, for whatever has to show the wood under
+  // it again.
+  std::unique_ptr<agui::Image> wood(float u0 = 0, float v0 = 0, float u1 = 1, float v1 = 1) const;
+
 private:
   std::shared_ptr<Texture2D> sheet;
+  std::shared_ptr<Texture2D> woodTexture;
 };
 
 }  // namespace ui
