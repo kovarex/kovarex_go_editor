@@ -92,9 +92,10 @@ Compiler( 'MSVC' )
 ]
 
 //------------------------------------------------------------------------------
-// The GUI atlas is compiled into the exe, so the exe is all there is to ship.
-// tools/Embed.cpp turns the .png into a .cpp of bytes. (The stones and marks
-// need no file: ui/GoSprites.cpp paints them at start-up.)
+// What resources/ holds -- the GUI atlas, the typeface, the icons -- is
+// compiled into the exe, so the exe is all there is to ship. tools/Embed.cpp
+// turns each file into a .cpp of bytes in build\generated. (The stones and
+// marks need no file: ui/GoSprites.cpp paints them at start-up.)
 //------------------------------------------------------------------------------
 ObjectList( 'Embed-Obj' )
 {
@@ -111,31 +112,31 @@ Executable( 'Embed' )
 Exec( 'GuiAtlas' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\gui.png'
+  .ExecInput      = 'resources\gui.png'
   .ExecOutput     = 'build\generated\GuiAtlas.cpp'
   .ExecArguments  = '"%1" "%2" GUI_ATLAS_PNG ui'
 }
 
 // The typeface too: Titillium Web, the one Factorio's GUI is set in (SIL Open
-// Font License, src/ui/fonts/OFL.txt). See ui/Fonts.cpp.
+// Font License, resources/fonts/OFL.txt). See ui/Fonts.cpp.
 Exec( 'FontRegular' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\fonts\TitilliumWeb-Regular.ttf'
+  .ExecInput      = 'resources\fonts\TitilliumWeb-Regular.ttf'
   .ExecOutput     = 'build\generated\FontRegular.cpp'
   .ExecArguments  = '"%1" "%2" FONT_REGULAR_TTF ui'
 }
 Exec( 'FontSemiBold' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\fonts\TitilliumWeb-SemiBold.ttf'
+  .ExecInput      = 'resources\fonts\TitilliumWeb-SemiBold.ttf'
   .ExecOutput     = 'build\generated\FontSemiBold.cpp'
   .ExecArguments  = '"%1" "%2" FONT_SEMIBOLD_TTF ui'
 }
 Exec( 'FontBold' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\fonts\TitilliumWeb-Bold.ttf'
+  .ExecInput      = 'resources\fonts\TitilliumWeb-Bold.ttf'
   .ExecOutput     = 'build\generated\FontBold.cpp'
   .ExecArguments  = '"%1" "%2" FONT_BOLD_TTF ui'
 }
@@ -145,21 +146,21 @@ Exec( 'FontBold' )
 Exec( 'IconInfo' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\icons\info-blue.png'
+  .ExecInput      = 'resources\icons\info-blue.png'
   .ExecOutput     = 'build\generated\IconInfo.cpp'
   .ExecArguments  = '"%1" "%2" ICON_INFO_PNG ui'
 }
 Exec( 'IconReset' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\icons\reset.png'
+  .ExecInput      = 'resources\icons\reset.png'
   .ExecOutput     = 'build\generated\IconReset.cpp'
   .ExecArguments  = '"%1" "%2" ICON_RESET_PNG ui'
 }
 Exec( 'IconResetWhite' )
 {
   .ExecExecutable = 'build\tools\Embed.exe'
-  .ExecInput      = 'src\ui\icons\reset-white.png'
+  .ExecInput      = 'resources\icons\reset-white.png'
   .ExecOutput     = 'build\generated\IconResetWhite.cpp'
   .ExecArguments  = '"%1" "%2" ICON_RESET_WHITE_PNG ui'
 }

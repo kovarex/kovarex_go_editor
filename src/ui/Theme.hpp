@@ -3,9 +3,9 @@
 // program is expected to fill. Theme does that for every widget in the
 // library and keeps the fonts and images those styles point at alive.
 //
-// The look is Factorio's: gui.png is Factorio's gui-new.png (compiled into the
-// exe, see fastbuild/fbuild.bff), and the regions, paddings and colours come from its
-// style prototype (style.lua, next to it).
+// The look is Factorio's: resources/gui.png is Factorio's gui-new.png (compiled
+// into the exe, see fastbuild/fbuild.bff), and the regions, paddings and colours
+// come from its style prototype (resources/style.lua, next to it).
 // Styles are named after their style.lua counterparts, so that file is the
 // place to look up what a number means or to port another style.
 

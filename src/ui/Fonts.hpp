@@ -2,7 +2,7 @@
 //
 // Titillium Web, the face Factorio's GUI is set in, in its three weights. The
 // .ttf files are compiled into the exe (see fastbuild/fbuild.bff; the licence
-// is src/ui/fonts/OFL.txt) and rasterised once per pixel size, so text is
+// is resources/fonts/OFL.txt) and rasterised once per pixel size, so text is
 // crisp at every size instead of scaled up from one.
 
 #pragma once
