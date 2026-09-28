@@ -1,0 +1,87 @@
+# Builds the editor for Windows and Linux on every push to master, and puts
+# both up for download as the release "latest" -- replaced each time, so it is
+# always the newest commit's. The links stay the same:
+#   https://github.com/kovarex/kovarex_go_editor/releases/latest/download/kovarex_go_editor.exe
+#   https://github.com/kovarex/kovarex_go_editor/releases/latest/download/kovarex_go_editor-linux-x64.tar.gz
+name: Build
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# One release at a time: a push while an older one is still being published
+# replaces it.
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # FASTBuild is in the repository; build.cmd finds Visual Studio and the
+      # Windows SDK the runner has.
+      - name: Build
+        shell: cmd
+        run: fastbuild\build.cmd Release -noprogress
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/Release/kovarex_go_editor.exe
+          if-no-files-found: error
+
+  linux:
+    # The oldest Ubuntu GitHub offers, so the program runs on anything with a
+    # glibc at least as new as 22.04's.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install what GLFW needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake pkg-config g++-12 libx11-dev libxrandr-dev libxinerama-dev \
+                                  libxcursor-dev libxi-dev libgl1-mesa-dev
+      - name: Build
+        env:
+          CXX: g++-12
+          CC: gcc-12
+        run: |
+          cmake -S . -B build/linux -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/linux -j "$(nproc)"
+          strip build/linux/kovarex_go_editor
+      # A tarball rather than the bare file, which would lose being executable.
+      - name: Pack
+        run: tar -czf kovarex_go_editor-linux-x64.tar.gz -C build/linux kovarex_go_editor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: kovarex_go_editor-linux-x64.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Publish as "latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # Through the environment, not pasted into the script, where a quote
+          # in it would break the script.
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest kovarex_go_editor.exe kovarex_go_editor-linux-x64.tar.gz \
+            --target "$GITHUB_SHA" --latest \
+            --title "Latest build" \
+            --notes "Built from ${GITHUB_SHA::7}: $(printf '%s' "$MESSAGE" | head -n 1)
+
+          **Windows:** kovarex_go_editor.exe -- download and run.
+          **Linux (x64):** kovarex_go_editor-linux-x64.tar.gz -- \`tar -xzf kovarex_go_editor-linux-x64.tar.gz && ./kovarex_go_editor\`"
