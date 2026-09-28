@@ -17,7 +17,7 @@ namespace {
 // Round the whole tree, so the first node isn't against the pane's edge.
 constexpr int PAD = 4;
 // A node with its move number on it: big enough for three digits.
-constexpr int NUMBERED_NODE_PX = 28;
+constexpr int NUMBERED_NODE_PX = 32;
 
 void Pin(agui::Widget& widget, agui::Style& style, int w, int h)
 {

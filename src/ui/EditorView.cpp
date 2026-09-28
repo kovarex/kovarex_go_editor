@@ -23,9 +23,9 @@ namespace ui {
 namespace {
 
 // The tool buttons' size: Theme::toolButton's.
-constexpr int TOOL_PX = 34;
+constexpr int TOOL_PX = Theme::TOOL_PX;
 // The side panel's width. Nine tool buttons across, and the players' names.
-constexpr int SIDE_W = 430;
+constexpr int SIDE_W = 432;
 // Space kept round the board.
 constexpr int BOARD_GAP = 8;
 // How long a message stays on the status line.
@@ -118,7 +118,7 @@ EditorView::EditorView(agui::Gui& gui, Theme& theme, const GoSprites& sprites)
 {
   this->topBar << this->buildTopBar();
 
-  agui::VerticalFlow& upperFlow = column(6);
+  agui::VerticalFlow& upperFlow = column(8);
   upperFlow << this->buildPlayers();
   upperFlow << this->buildTools();
   upperFlow << this->buildNavigation();
@@ -192,7 +192,7 @@ agui::Widget& EditorView::buildTopBar()
 agui::Widget& EditorView::buildPlayers()
 {
   agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.insideShallowFrameWithPadding);
-  agui::VerticalFlow& rows = column(2);
+  agui::VerticalFlow& rows = column(4);
 
   const auto playerRow = [this](Sprite stone, agui::Label*& name, agui::Label*& captures) {
     agui::HorizontalFlow& r = row(8);
@@ -246,7 +246,7 @@ agui::Button& EditorView::toolButton(Tool which)
     this->icons.push_back({ &button, &icon, at, at });
   } else if (which == Tool::Play) {
     // Both colours, one after the other, the pair centred together.
-    constexpr int STONE = 18, STEP = 8;
+    constexpr int STONE = 16, STEP = 8;
     const int     from  = (TOOL_PX - STONE - STEP) / 2;
     agui::ImageWidget& black = Icon(this->sprites, Sprite::BlackStone, STONE);
     agui::ImageWidget& white = Icon(this->sprites, Sprite::WhiteStone, STONE);
@@ -341,7 +341,7 @@ agui::Widget& EditorView::buildNode()
 
   this->positionNote = &make<agui::DropDown>();
   for (const auto& note : POSITION_NOTES) this->positionNote->addItem(std::string(note[0]));
-  PinWidth(this->positionNote->style, 158);
+  PinWidth(this->positionNote->style, 160);
   this->positionNote->onItemSelect(this, [this](int i) {
     if (this->game && i >= 0) this->game->setPositionAnnotation(POSITION_NOTES[i][1]);
   });

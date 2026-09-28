@@ -844,7 +844,10 @@ void Theme::themeContainers()
   Under(f.initHorizontalFlowStyle(), &agui::HorizontalFlow::defaultStyle);
   agui::HorizontalFlowStyle* header = Under(f.initHeaderFlowStyle(), &agui::HorizontalFlow::defaultStyle);
   header->setHorizontallyStretchable(true);
-  header->setBottomPadding(4);
+  // frame_header_flow's 4, and Factorio's title stands another module taller
+  // than the drag handle, which is top-aligned above that: so a window's
+  // content starts two modules below the handle.
+  header->setBottomPadding(8);
   header->setHorizontalSpacing(8);
   header->setVerticalAlign(agui::VerticalAlign::Center);
   // draggable_space_header: the ridged strip right of the title.
@@ -1342,7 +1345,6 @@ void Theme::themeBoard()
   }
 
   // tool_button: square, sunk while its tool is the one in use.
-  constexpr int TOOL_PX = 34;
   this->toolButton.setPaddings(0, 0, 0, 0);
   this->toolButton.setMinimalWidth(TOOL_PX);
   this->toolButton.setMaximalWidth(TOOL_PX);
@@ -1350,8 +1352,8 @@ void Theme::themeBoard()
   this->toolButton.setMaximalHeight(TOOL_PX);
   this->toolButton.setHorizontallyStretchable(false);
 
-  this->smallButton.setPaddings(0, 6, 0, 6);
-  this->smallButton.setMinimalWidth(34);
+  this->smallButton.setPaddings(0, 8, 0, 8);
+  this->smallButton.setMinimalWidth(36);
   this->smallButton.setMinimalHeight(28);
   this->smallButton.setMaximalHeight(28);
   this->smallButton.setHorizontallyStretchable(false);

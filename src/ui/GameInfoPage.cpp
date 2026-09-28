@@ -13,8 +13,8 @@ namespace ui {
 
 namespace {
 
-constexpr int NAME_W  = 110;
-constexpr int FIELD_W = 210;
+constexpr int NAME_W  = 112;
+constexpr int FIELD_W = 212;
 
 struct Field {
   const char* id;

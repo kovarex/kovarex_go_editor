@@ -59,8 +59,8 @@ private:
 
   // A node's button, from one node to the next, and the stone in it.
   int nodePx() const;
-  int pitch() const { return this->nodePx() + 6; }
-  int stonePx() const { return this->nodePx() - 6; }
+  int pitch() const { return this->nodePx() + 8; }
+  int stonePx() const { return this->nodePx() - 8; }
   // The middle of a grid cell of the tree.
   int centre(int cell) const;
   // Places `start` and the first-child line that follows it on the first

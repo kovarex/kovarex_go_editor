@@ -100,8 +100,12 @@ public:
   // Cheap to call with the size it already has.
   void setPointSize(int pointPx);
 
+  // Sizes in whole modules of 4px, as all of Factorio's are, so every
+  // standard interface scale keeps the same proportions.
   // How big the tree's nodes are, and so how far apart.
-  static constexpr int TREE_NODE_PX = 22;
+  static constexpr int TREE_NODE_PX = 24;
+  // A tool button in the side panel: square.
+  static constexpr int TOOL_PX = 32;
 
   // The interface scale the GUI is drawn at. Sizes stay as they are -- the
   // whole GUI is scaled when drawn -- but every font is rasterised again for

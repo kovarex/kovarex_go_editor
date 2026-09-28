@@ -48,14 +48,14 @@ HelpPage::HelpPage(Theme& theme, std::function<void()> onBack)
   agui::Table* mouse = section("The board");
   for (const auto& [what, does] : MOUSE) {
     agui::Label& key = agui::label(what, &theme.dimLabel);
-    key.style.setMinimalWidth(170);
+    key.style.setMinimalWidth(172);
     *mouse << key << agui::label(does);
   }
 
   agui::Table* keys = section("Keys");
   for (const Shortcut& s : AllShortcuts()) {
     agui::Label& key = agui::label(s.keys, &theme.dimLabel);
-    key.style.setMinimalWidth(170);
+    key.style.setMinimalWidth(172);
     *keys << key << agui::label(s.what);
   }
   agui::Label& note = agui::label("The keys work wherever the mouse or the focus is -- except in a text box, where only the "
