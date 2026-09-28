@@ -20,12 +20,12 @@ public static class W {
 [W]::SetProcessDPIAware() | Out-Null
 $dir = Join-Path $env:TEMP "goeditor-drive"; New-Item -ItemType Directory -Force $dir | Out-Null
 if ($cmd -eq 'start') {
-  Get-Process goeditor -ErrorAction SilentlyContinue | Stop-Process -Force
-  Start-Process 'C:\projekty\kovarex_go_editor\build\Debug\goeditor.exe' -WorkingDirectory 'C:\projekty\kovarex_go_editor'
+  Get-Process kovarex_go_editor -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Process 'C:\projekty\kovarex_go_editor\build\Debug\kovarex_go_editor.exe' -WorkingDirectory 'C:\projekty\kovarex_go_editor'
   Start-Sleep -Seconds 3
   $name = 'start'
 }
-$p = Get-Process goeditor | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$p = Get-Process kovarex_go_editor | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 $h = $p.MainWindowHandle
 
 # Windows only lets the process that had the last input take the foreground: a tap of Alt makes that us.

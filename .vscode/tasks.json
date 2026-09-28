@@ -33,7 +33,7 @@
     {
       "label": "build-and-run",
       "type": "process",
-      "command": "${workspaceFolder}/build/Debug/goeditor.exe",
+      "command": "${workspaceFolder}/build/Debug/kovarex_go_editor.exe",
       "options": { "cwd": "${workspaceFolder}" },
       "dependsOn": "build",
       "problemMatcher": []

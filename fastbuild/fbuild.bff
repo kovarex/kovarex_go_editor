@@ -5,7 +5,7 @@
 //   fastbuild\build.cmd            both (the default target, 'all')
 //   fastbuild\build.cmd solution   Visual Studio solution, GoEditor.sln
 //   add -clean to rebuild from scratch
-// The exe lands at build/<Config>/goeditor.exe.
+// The exe lands at build/<Config>/kovarex_go_editor.exe.
 
 //------------------------------------------------------------------------------
 // Toolchain. build.cmd finds the newest MSVC and Windows SDK with vswhere and
@@ -242,7 +242,7 @@ ForEach( .Cfg in .Configs )
   Executable( 'goeditor-$Config$' )
   {
     .Libraries     = { 'goeditor-obj-$Config$', 'raylib-$Config$', 'agui-$Config$' }
-    .LinkerOutput  = '$Out$\goeditor.exe'
+    .LinkerOutput  = '$Out$\kovarex_go_editor.exe'
     .LinkerOptions = '/NOLOGO /MACHINE:X64 /DEBUG /INCREMENTAL:NO /OUT:"%2" "%1"'
                    + .Subsystem
                    + .ConfigLinkerOptions
@@ -261,7 +261,7 @@ Alias( 'all' ) { .Targets = { 'Debug', 'Release' } }
 //   fastbuild\build.cmd solution
 // writes GoEditor.sln at the repo root (with its project in build\vs\).
 // It's a Makefile project: Build and Rebuild in VS run build.cmd, so FASTBuild
-// still does the building, and F5 starts goeditor.exe under the debugger.
+// still does the building, and F5 starts kovarex_go_editor.exe under the debugger.
 // IntelliSense's include paths and defines come from each config's .Target.
 //------------------------------------------------------------------------------
 .VSConfigs = {}
