@@ -165,6 +165,15 @@ Exec( 'IconResetWhite' )
   .ExecArguments  = '"%1" "%2" ICON_RESET_WHITE_PNG ui'
 }
 
+// The board's wood: a photograph, CC0 from ambientCG (resources/wood/LICENSE.txt).
+Exec( 'BoardWood' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'resources\wood\Wood048.jpg'
+  .ExecOutput     = 'build\generated\BoardWood.cpp'
+  .ExecArguments  = '"%1" "%2" BOARD_WOOD_JPG ui'
+}
+
 // Agui is a pile of small files that rarely change: compile it as a few
 // unity blobs instead of ~100 separate translation units.
 Unity( 'Agui-Unity' )
@@ -184,7 +193,8 @@ ForEach( .Cfg in .Configs )
   .Out = 'build\$Config$'
 
   // raylib 5.5, vendored in libraries/raylib (desktop GLFW / OpenGL 3.3).
-  .RaylibDefines = ' /DPLATFORM_DESKTOP /DGRAPHICS_API_OPENGL_33 /D_CRT_SECURE_NO_WARNINGS'
+  // Its config leaves JPG out; the board's wood is one.
+  .RaylibDefines = ' /DPLATFORM_DESKTOP /DGRAPHICS_API_OPENGL_33 /D_CRT_SECURE_NO_WARNINGS /DSUPPORT_FILEFORMAT_JPG=1'
   Library( 'raylib-$Config$' )
   {
     .CompilerOptions    = .BaseCompilerOptions + .ConfigOptions + .RaylibDefines
@@ -223,10 +233,10 @@ ForEach( .Cfg in .Configs )
     .CompilerInputFiles = { 'build\generated\GuiAtlas.cpp', 'build\generated\FontRegular.cpp',
                             'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp',
                             'build\generated\IconInfo.cpp', 'build\generated\IconReset.cpp',
-                            'build\generated\IconResetWhite.cpp' }
+                            'build\generated\IconResetWhite.cpp', 'build\generated\BoardWood.cpp' }
     .CompilerOutputPath = '$Out$\obj\goeditor\'
     .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold',
-                              'IconInfo', 'IconReset', 'IconResetWhite' }
+                              'IconInfo', 'IconReset', 'IconResetWhite', 'BoardWood' }
   }
 
   Executable( 'goeditor-$Config$' )

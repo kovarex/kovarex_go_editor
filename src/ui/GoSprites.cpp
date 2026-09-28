@@ -410,38 +410,52 @@ void Paint(Sprite sprite, ::Image& sheet)
 
 }  // namespace
 
+// The wood: a photograph of flat-sawn wood, its grain sweeping in the long
+// arches of a board cut along the log (resources/wood/LICENSE.txt). Embedded
+// by tools/Embed.cpp at build time.
+extern const unsigned char BOARD_WOOD_JPG[];
+extern const std::size_t   BOARD_WOOD_JPG_SIZE;
+
 namespace {
 
-// The wood's texels a side: enough for a board filling a 4K screen.
-constexpr int WOOD = 1024;
-
-// Kaya, the wood of good boards: a warm yellow, its fine grain running
-// straight down the board in lines that drift a little, over broader bands
-// of lighter and darker wood. Quiet, so the grid and stones stay what the
-// eye sees first.
+// The photograph as the board wants it: turned so the grain runs down the
+// board, and in the board's colours -- its light wood a warm honey, its
+// grain a mid brown. Only how light each texel is, is kept of the photo's
+// own colour, stretched so its lightest and darkest (bar the odd speck)
+// span the two.
 ::Image WoodGrain()
 {
-  ::Image image = GenImageColor(WOOD, WOOD, ::Color{ 0, 0, 0, 255 });
-  auto*   out   = static_cast<::Color*>(image.data);
-  const Rgba base = Rgb(224, 182, 110);
-  for (int j = 0; j < WOOD; ++j) {
-    const float v = float(j) / float(WOOD);
-    for (int i = 0; i < WOOD; ++i) {
-      const float u = float(i) / float(WOOD);
-      // Across the grain, bent a little along the board.
-      const float t     = u + 0.015f * Noise(v * 2.5f, 11) + 0.004f * Noise(v * 11.0f, 12);
-      const float fine  = 0.6f * Noise(t * 330.0f, 13) + 0.4f * Noise(t * 820.0f, 14);
-      const float broad = Noise(t * 9.0f, 15) + 0.5f * Noise(t * 31.0f, 16);
-      // Along the grain too, faintly: no board is the same all the way down.
-      const float along = Noise(v * 6.0f + t * 40.0f, 17);
-      const float shade = 1.0f + 0.035f * fine + 0.045f * broad + 0.015f * along;
-      out[size_t(j) * WOOD + size_t(i)] = {
-        static_cast<unsigned char>(std::lround(Clamp01(base.r * shade + 0.012f * broad) * 255.0f)),
-        static_cast<unsigned char>(std::lround(Clamp01(base.g * shade) * 255.0f)),
-        static_cast<unsigned char>(std::lround(Clamp01(base.b * shade - 0.01f * broad) * 255.0f)),
-        255,
-      };
+  ::Image image = LoadImageFromMemory(".jpg", BOARD_WOOD_JPG, int(BOARD_WOOD_JPG_SIZE));
+  if (!image.data) return GenImageColor(16, 16, ::Color{ 220, 179, 105, 255 });
+  ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+  ImageRotateCW(&image);
+
+  auto*        pixels = static_cast<::Color*>(image.data);
+  const size_t count  = size_t(image.width) * size_t(image.height);
+  const auto   light  = [](const ::Color& c) { return 0.299f * c.r + 0.587f * c.g + 0.114f * c.b; };
+
+  std::vector<int> histogram(256, 0);
+  for (size_t i = 0; i < count; ++i) ++histogram[size_t(std::lround(light(pixels[i])))];
+  const auto percentile = [&](float fraction) {
+    size_t seen = 0;
+    for (int level = 0; level < 256; ++level) {
+      seen += size_t(histogram[size_t(level)]);
+      if (float(seen) >= fraction * float(count)) return float(level);
     }
+    return 255.0f;
+  };
+  const float darkest = percentile(0.02f), lightest = percentile(0.98f);
+
+  const Rgba honey = Rgb(232, 198, 132);
+  const Rgba brown = Rgb(192, 146, 82);
+  for (size_t i = 0; i < count; ++i) {
+    // Squared, so the wood between the grain stays light and only the grain
+    // itself darkens.
+    const float t = std::pow(Clamp01((lightest - light(pixels[i])) / std::max(1.0f, lightest - darkest)), 1.6f);
+    const Rgba  c = Mix(honey, brown, t);
+    pixels[i]     = { static_cast<unsigned char>(std::lround(Clamp01(c.r) * 255.0f)),
+                      static_cast<unsigned char>(std::lround(Clamp01(c.g) * 255.0f)),
+                      static_cast<unsigned char>(std::lround(Clamp01(c.b) * 255.0f)), 255 };
   }
   return image;
 }
@@ -472,7 +486,8 @@ GoSprites::GoSprites()
 std::unique_ptr<agui::Image> GoSprites::wood(float u0, float v0, float u1, float v1) const
 {
   if (!this->woodTexture) return nullptr;
-  const ::Rectangle region{ u0 * float(WOOD), v0 * float(WOOD), (u1 - u0) * float(WOOD), (v1 - v0) * float(WOOD) };
+  const float w = float(this->woodTexture->width), h = float(this->woodTexture->height);
+  const ::Rectangle region{ u0 * w, v0 * h, (u1 - u0) * w, (v1 - v0) * h };
   return std::make_unique<agui_raylib::RaylibImage>(this->woodTexture, region, 1.0f);
 }
 

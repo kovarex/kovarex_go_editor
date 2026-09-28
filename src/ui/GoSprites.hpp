@@ -78,8 +78,9 @@ public:
   // A fresh image each call: an ImageWidget owns the one it is given.
   std::unique_ptr<agui::Image> image(Sprite sprite) const;
 
-  // The board's wood: kaya, its grain running down the board. One picture,
-  // stretched over the whole board; or the part of it from (u0, v0) to
+  // The board's wood: a photograph of flat-sawn wood, graded to the board's
+  // colours, its grain running down the board. One picture, stretched over
+  // the whole board; or the part of it from (u0, v0) to
   // (u1, v1), in fractions of it, for whatever has to show the wood under
   // it again.
   std::unique_ptr<agui::Image> wood(float u0 = 0, float v0 = 0, float u1 = 1, float v1 = 1) const;
