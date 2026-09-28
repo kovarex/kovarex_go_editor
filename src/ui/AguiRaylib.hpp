@@ -98,6 +98,7 @@ public:
   void reload(const std::string& fileName, int height, int fontFlags, float borderWidth,
               const agui::Color& borderColor) override;
   const std::string& getPath() const override { return this->path; }
+  agui::RichTextHandler* getRichTextHandler() const override;
 
 private:
   ::Font      font{};
@@ -106,6 +107,13 @@ private:
   float       spacingPx = 1.0f;
   std::string path;
 };
+
+// Rich text, the part of Factorio's that the editor uses: where a widget's
+// RichTextSetting isn't Disabled, text in [font=name]...[/font] is drawn in
+// the font registered under that name, and text in [color=r,g,b]...[/color]
+// (0-255, or #rrggbb) in that colour. Tags nest; anything else in brackets
+// is just text. The names are style.lua's: "default", "default-semibold"...
+void RegisterFont(const std::string& name, const RaylibFont* font);
 
 class RaylibFontLoader : public agui::FontLoader {
 public:
@@ -170,6 +178,11 @@ public:
                      const agui::Color& color, const agui::Font* font,
                      agui::RichTextSetting richTextSetting = agui::RichTextSetting::Enabled,
                      agui::HorizontalAlign align = agui::HorizontalAlign::Left) override;
+  // Rich text's wrapped lines, each started with the tags still open from
+  // the one before.
+  void drawTextLines(const agui::ResizableText& text, std::vector<std::pair<size_t, agui::Point>>& linePositions,
+                     const agui::Font* font, const agui::Color& color,
+                     const agui::TextHighlightErrorColors& highlightColors) override;
   using agui::Graphics::drawTextLines;
 
   void drawRectangle(const agui::Rectangle& rect, const agui::Color& color, int width = 1) override;

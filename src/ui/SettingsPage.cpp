@@ -154,10 +154,9 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   // that shows its value and takes a typed one.
   {
     agui::Frame& delay = this->section(content);
-    delay << this->name("Tooltip delay",
-                        "How long the mouse rests on something before its tooltip shows. "
-                        "Hold Shift to see tooltips at once, whatever this says.",
-                        &this->theme.captionLabel);
+    const std::string tip = "How long the mouse rests on something before its tooltip shows. Hold " +
+                            ShortcutText("Shift") + " to see tooltips at once, whatever this says.";
+    delay << this->name("Tooltip delay", tip.c_str(), &this->theme.captionLabel);
     // 0 to 200 ms, and one notch past the end for "never".
     this->tooltipDelay = &make<agui::Slider>();
     this->tooltipDelay->setMinMaxValues(0, Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP);

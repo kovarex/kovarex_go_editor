@@ -80,6 +80,11 @@ KeyCombo ParseKey(std::string_view text)
   return combo;
 }
 
+std::string ShortcutText(std::string_view keys)
+{
+  return "[font=default-semibold][color=128,206,240]" + std::string(keys) + "[/color][/font]";
+}
+
 bool IsBindable(int key)
 {
   return std::any_of(std::begin(KEY_NAMES), std::end(KEY_NAMES), [key](const KeyName& k) { return k.key == key; });

@@ -534,6 +534,12 @@ Theme::Theme()
   this->resetWhite = load(ICON_RESET_WHITE_PNG, ICON_RESET_WHITE_PNG_SIZE);
 
   // --- root defaults: every property a widget might read is set here ---
+  // For rich text's [font=...], by style.lua's names.
+  for (auto [name, font] : { std::pair{ "default-small", &this->smallFont }, std::pair{ "default", &this->bodyFont },
+                             std::pair{ "default-semibold", &this->semiboldFont }, std::pair{ "default-bold", &this->boldFont },
+                             std::pair{ "heading-2", &this->headingFont }, std::pair{ "heading-1", &this->bigFont } })
+      agui_raylib::RegisterFont(name, font);
+
   DefineAllRootStyles();
   this->themeBasics();
   this->themeToggles();
@@ -923,6 +929,8 @@ void Theme::themeContainers()
   // tooltip_label: wrapped at this width, not one long line.
   agui::ToolTip::defaultLabelStyle.setMaximalWidth(356);
   agui::ToolTip::defaultLabelStyle.setSingleLine(false);
+  // Keys in a tooltip are in their own font and colour (see ShortcutText).
+  agui::ToolTip::defaultLabelStyle.setRichTextSetting(agui::RichTextSetting::ShowFontsAndColors);
 
   // inside_shallow_frame and inside_deep_frame: panels set into the window.
   // Their rim is drawn outside them, over the window's padding.

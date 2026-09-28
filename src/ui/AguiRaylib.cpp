@@ -2,9 +2,15 @@
 
 #include <Agui/KeyboardInput.hpp>
 #include <Agui/MouseInput.hpp>
+#include <Agui/ResizableText.hpp>
 #include <Agui/SystemClipboard.hpp>
 
 #include <algorithm>
+#include <charconv>
+#include <map>
+#include <optional>
+#include <string_view>
+#include <vector>
 #include <cmath>
 
 namespace agui_raylib {
@@ -36,6 +42,113 @@ void KeepSamplesInside(float& start, float& size, float destSize)
   start += inset;
   size -= 2 * inset;
 }
+
+
+// ------------------------------------------------------------ rich text ----
+
+std::map<std::string, const RaylibFont*, std::less<>>& Fonts()
+{
+  static std::map<std::string, const RaylibFont*, std::less<>> fonts;
+  return fonts;
+}
+
+bool HasTags(std::string_view text) { return text.find('[') != std::string_view::npos; }
+
+// "#rrggbb", or "r,g,b" in 0-255.
+std::optional<agui::Color> ParseColor(std::string_view spec)
+{
+  int rgb[3] = {};
+  if (spec.size() == 7 && spec[0] == '#') {
+    for (int i = 0; i < 3; ++i) {
+      if (std::from_chars(spec.data() + 1 + 2 * i, spec.data() + 3 + 2 * i, rgb[i], 16).ec != std::errc()) return std::nullopt;
+    }
+  } else {
+    const char* at  = spec.data();
+    const char* end = spec.data() + spec.size();
+    for (int i = 0; i < 3; ++i) {
+      const auto [next, error] = std::from_chars(at, end, rgb[i]);
+      if (error != std::errc() || (i < 2 ? next == end || *next != ',' : next != end)) return std::nullopt;
+      at = next + 1;
+    }
+  }
+  return agui::Color(float(rgb[0]) / 255.0f, float(rgb[1]) / 255.0f, float(rgb[2]) / 255.0f, 1.0f);
+}
+
+// Calls onTag(tag, at, end) for each tag of `text` that rich text knows --
+// [font=...] naming a registered font, [color=...] that parses, [/font],
+// [/color] -- with the tag's text between the brackets and where it is.
+template<class OnTag>
+void ForEachTag(std::string_view text, OnTag&& onTag)
+{
+  size_t at = 0;
+  while ((at = text.find('[', at)) != std::string_view::npos) {
+    const size_t close = text.find(']', at);
+    if (close == std::string_view::npos) return;
+    const std::string_view tag = text.substr(at + 1, close - at - 1);
+    const bool known = (tag.starts_with("font=") && Fonts().contains(tag.substr(5))) ||
+                       (tag.starts_with("color=") && ParseColor(tag.substr(6))) || tag == "/font" || tag == "/color";
+    if (known) onTag(tag, at, close + 1);
+    at = known ? close + 1 : at + 1;  // anything else is just text
+  }
+}
+
+// Calls piece(text, font, colour) for each stretch of `text` between tags,
+// with the font and the colour (if any) the tags around it ask for.
+template<class Piece>
+void ForEachRun(std::string_view text, const RaylibFont* base, Piece&& piece)
+{
+  std::vector<const RaylibFont*>          fonts{ base };
+  std::vector<std::optional<agui::Color>> colors{ std::nullopt };
+  size_t start = 0;
+  ForEachTag(text, [&](std::string_view tag, size_t at, size_t end) {
+    if (at > start) piece(text.substr(start, at - start), fonts.back(), colors.back());
+    start = end;
+    if (tag.starts_with("font=")) fonts.push_back(Fonts().find(tag.substr(5))->second);
+    else if (tag.starts_with("color=")) colors.push_back(ParseColor(tag.substr(6)));
+    else if (tag == "/font" && fonts.size() > 1) fonts.pop_back();
+    else if (tag == "/color" && colors.size() > 1) colors.pop_back();
+  });
+  if (text.size() > start) piece(text.substr(start), fonts.back(), colors.back());
+}
+
+// The tags `text` leaves open, added to those open before it: what a line
+// wrapped out of the middle of tagged text has to start with.
+void TrackOpenTags(std::string_view text, std::vector<std::string>& open)
+{
+  ForEachTag(text, [&open](std::string_view tag, size_t, size_t) {
+    if (tag.front() != '/') {
+      open.push_back("[" + std::string(tag) + "]");
+      return;
+    }
+    const std::string_view kind = tag.substr(1);  // "font" or "color"
+    for (auto it = open.rbegin(); it != open.rend(); ++it) {
+      if (std::string_view(*it).substr(1, kind.size()) == kind) {
+        open.erase(std::next(it).base());
+        break;
+      }
+    }
+  });
+}
+
+// Agui's hook for rich text: text with tags gets RichTextData, and a label
+// that has some is laid out with rich widths and drawn through
+// Graphics::drawTextLines(ResizableText...), which keeps a line's tags open
+// into the next.
+class RichTextHandler : public agui::RichTextHandler {
+public:
+  void getTextDrawSections(std::string_view, const agui::Font*, agui::RichTextSetting, agui::RichTextData&) override {}
+  void getTextDrawSections(std::string_view text, const agui::Font* font, agui::RichTextSetting setting,
+                           std::unique_ptr<agui::RichTextData>& data) override
+  {
+    if (setting == agui::RichTextSetting::Disabled || !HasTags(text)) {
+      data.reset();
+      return;
+    }
+    if (!data) data = std::make_unique<agui::RichTextData>();
+    data->lineHeight = font->getLineHeight();
+  }
+  void getTextDrawSections(std::string_view, const agui::Font*, agui::RichTextSetting) override {}
+};
 
 }  // namespace
 
@@ -125,9 +238,26 @@ void RaylibFont::reload(const std::string& fileName, int newHeight, int, float, 
   return MeasureTextEx(this->font, s.c_str(), float(this->height * scale), float(this->spacingPx * scale));
 }
 
-int RaylibFont::getTextWidth(std::string_view text, agui::RichTextSetting, double scale) const
+int RaylibFont::getTextWidth(std::string_view text, agui::RichTextSetting setting, double scale) const
 {
-  return int(std::ceil(this->measure(text, scale).x));
+  if (setting == agui::RichTextSetting::Disabled || !HasTags(text)) return int(std::ceil(this->measure(text, scale).x));
+  // Wrapping measures ever longer prefixes of a line, and one that stops
+  // halfway through a tag mustn't count what there is of it as text: that
+  // would make the prefix wider than the whole line.
+  if (const size_t open = text.rfind('['); open != std::string_view::npos && text.find(']', open) == std::string_view::npos) {
+    const std::string_view partial = text.substr(open);
+    for (std::string_view tag : { "[font=", "[color=", "[/font]", "[/color]" }) {
+      if (tag.starts_with(partial) || partial.starts_with(tag)) {
+        text = text.substr(0, open);
+        break;
+      }
+    }
+  }
+  float width = 0;
+  ForEachRun(text, this, [&](std::string_view piece, const RaylibFont* font, const std::optional<agui::Color>&) {
+    width += font->measure(piece, scale).x;
+  });
+  return int(std::ceil(width));
 }
 
 int RaylibFont::getSubstringWidth(std::string_view text, const agui::RichTextData&,
@@ -149,6 +279,17 @@ size_t RaylibFont::getWrapIndex(std::string_view text, int width, double scale) 
     fits = i = next;
   }
   return fits;
+}
+
+agui::RichTextHandler* RaylibFont::getRichTextHandler() const
+{
+  static RichTextHandler handler;
+  return &handler;
+}
+
+void RegisterFont(const std::string& name, const RaylibFont* font)
+{
+  Fonts()[name] = font;
 }
 
 agui::Font* RaylibFontLoader::loadFont(const std::string& fileName, int height, int,
@@ -314,14 +455,16 @@ void RaylibGraphics::drawScaledRotatedTintedImage(const agui::Image* bmp, double
 
 void RaylibGraphics::drawText(const agui::Point& position, const std::string& text,
                               const agui::Color& color, const agui::Font* font,
-                              agui::RichTextSetting, agui::HorizontalAlign align,
+                              agui::RichTextSetting setting, agui::HorizontalAlign align,
                               const agui::TextHighlightErrorColors&, agui::HighlightedText,
                               float scale, agui::VerticalAlign verticalAlign, float orientation)
 {
   const auto* f = static_cast<const RaylibFont*>(font);
   if (!f || text.empty()) return;
+  const bool rich = setting != agui::RichTextSetting::Disabled && HasTags(text);
 
-  const ::Vector2 size = f->measure(text, scale);
+  const ::Vector2 size = rich ? ::Vector2{ float(f->getTextWidth(text, setting, scale)), f->size() * scale }
+                              : f->measure(text, scale);
   float x = float(position.x + this->getOffset().x);
   float y = float(position.y + this->getOffset().y);
   if (align == agui::HorizontalAlign::Center)     x -= size.x * 0.5f;
@@ -332,6 +475,18 @@ void RaylibGraphics::drawText(const agui::Point& position, const std::string& te
   // Onto whole screen pixels, not whole GUI units: at 125% the one isn't the
   // other, and glyphs that start between pixels come out soft.
   const auto snap = [this](float v) { return std::round(v * this->viewScale) / this->viewScale; };
+  if (rich) {
+    // One stretch after another, each in its own font and colour.
+    ForEachRun(text, f, [&](std::string_view piece, const RaylibFont* runFont, const std::optional<agui::Color>& runColor) {
+      // A tag's colour, but the widget's transparency (a disabled one's, say).
+      const agui::Color c = runColor ? agui::Color(runColor->getR(), runColor->getG(), runColor->getB(), color.getA()) : color;
+      const std::string s(piece);
+      DrawTextPro(runFont->raylibFont(), s.c_str(), { snap(x), snap(y) }, { 0, 0 }, 0.0f, runFont->size() * scale,
+                  runFont->spacing() * scale, ToRaylib(Multiply(c, this->tint)));
+      x += runFont->measure(piece, scale).x;
+    });
+    return;
+  }
   DrawTextPro(f->raylibFont(), text.c_str(), { snap(x), snap(y) }, { 0, 0 },
               orientation * 360.0f, f->size() * scale, f->spacing() * scale,
               ToRaylib(Multiply(color, this->tint)));
@@ -349,6 +504,22 @@ void RaylibGraphics::drawTextLines(const agui::Point& position, std::string_view
     this->drawText(p, std::string(text.substr(start, end - start)), color, font, setting, align);
     p.y += font->getLineHeight();
     start = end + 1;
+  }
+}
+
+void RaylibGraphics::drawTextLines(const agui::ResizableText& text, std::vector<std::pair<size_t, agui::Point>>& linePositions,
+                                   const agui::Font* font, const agui::Color& color,
+                                   const agui::TextHighlightErrorColors& highlightColors)
+{
+  const std::vector<std::string_view>& lines = text.lines();
+  std::vector<std::string> open;
+  size_t tracked = 0;  // the lines whose tags are in `open`
+  for (const auto& [index, position] : linePositions) {
+    for (; tracked < index; ++tracked) TrackOpenTags(lines[tracked], open);
+    std::string line;
+    for (const std::string& tag : open) line += tag;
+    line += lines[index];
+    this->drawText(position, line, color, font, text.getRichTextSetting(), agui::HorizontalAlign::Left, highlightColors);
   }
 }
 

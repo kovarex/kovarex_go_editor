@@ -32,6 +32,10 @@ struct KeyCombo {
 std::string KeyText(const KeyCombo& combo);
 KeyCombo    ParseKey(std::string_view text);
 
+// Keys as Factorio shows them in a tooltip: in control_input_shortcut_label's
+// semibold light blue, as rich text (see agui_raylib::RegisterFont).
+std::string ShortcutText(std::string_view keys);
+
 // Whether a key can be bound at all: one the editor has a name for, and not
 // a modifier, which only goes with another key.
 bool IsBindable(int key);

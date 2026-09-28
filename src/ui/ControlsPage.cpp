@@ -31,9 +31,10 @@ constexpr int CHROME_H = 160;
 // Less than this and the page runs off the screen rather than shrink.
 constexpr int MIN_SCROLL_H = 160;
 
-// locale: gui-control-settings.waiting, and gui.instruction-to-clear-generic.
+// locale: gui-control-settings.waiting and gui.instruction-to-clear-generic.
 constexpr const char* WAITING      = "Waiting";
-constexpr const char* HOW_TO_CLEAR = "Right-click to clear.";
+// Right-click in the style of keys, as __CONTROL_RIGHT_CLICK__ is.
+const std::string HOW_TO_CLEAR = ShortcutText("Right-click") + " to clear.";
 
 // What the mouse does on the board: not controls anyone can change, but
 // listed with them, on buttons that can't be pressed, so that the page shows

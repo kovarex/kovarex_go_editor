@@ -130,7 +130,7 @@ EditorView::EditorView(agui::Gui& gui, Theme& theme, const GoSprites& sprites)
   this->comment->setWordWrap(true);
   this->comment->setHScrollPolicy(agui::ScrollPolicy::Never);
   this->comment->setVScrollPolicy(agui::ScrollPolicy::Auto);
-  this->comment->setToolTip("The comment on this move. Esc, or a click on the board, and the keys are shortcuts again.");
+  // Its tooltip names the key that lets go of it: see applyTips().
   this->comment->onTextEdit(this, [this] {
     if (this->game) this->game->setNodeText("C", this->comment->getText());
   });
@@ -395,8 +395,13 @@ void EditorView::applyTips()
       continue;
     }
     const size_t end = std::min(t.tip.find('\n'), t.tip.size());
-    t.button->setToolTip(t.tip.substr(0, end) + " (" + keys + ")" + t.tip.substr(end));
+    t.button->setToolTip(t.tip.substr(0, end) + " (" + ShortcutText(keys) + ")" + t.tip.substr(end));
   }
+  // The comment box: what lets go of it, so the keys are shortcuts again.
+  const std::string cancel = this->tippedWith.keysFor(Command::Cancel);
+  this->comment->setToolTip("The comment on this move. " +
+                            (cancel.empty() ? std::string("A click on the board") : ShortcutText(cancel) + ", or a click on the board,") +
+                            " and the keys are shortcuts again.");
 }
 
 void EditorView::setTreeNumbers(bool on)
