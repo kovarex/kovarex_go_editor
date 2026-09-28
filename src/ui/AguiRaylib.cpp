@@ -194,17 +194,18 @@ void RaylibGraphics::applyScissor()
     this->clip = agui::Rectangle(l, t, std::max(0, r - l), std::max(0, b - t));
   }
 
-  if (IsFullScreen(this->clip)) {
+  const agui::Rectangle& cut = this->forcedClip;
+  if (IsFullScreen(cut)) {
     if (this->scissoring) EndScissorMode();
     this->scissoring = false;
     return;
   }
   // The clip is in GUI units and the scissor in screen pixels. Rounded
   // outwards, so an edge between two pixels keeps the one it half covers.
-  const int left   = int(std::floor(float(this->clip.getLeft()) * this->viewScale));
-  const int top    = int(std::floor(float(this->clip.getTop()) * this->viewScale));
-  const int right  = int(std::ceil(float(this->clip.getLeft() + std::max(0, this->clip.getWidth())) * this->viewScale));
-  const int bottom = int(std::ceil(float(this->clip.getTop() + std::max(0, this->clip.getHeight())) * this->viewScale));
+  const int left   = int(std::floor(float(cut.getLeft()) * this->viewScale));
+  const int top    = int(std::floor(float(cut.getTop()) * this->viewScale));
+  const int right  = int(std::ceil(float(cut.getLeft() + std::max(0, cut.getWidth())) * this->viewScale));
+  const int bottom = int(std::ceil(float(cut.getTop() + std::max(0, cut.getHeight())) * this->viewScale));
   BeginScissorMode(left, top, right - left, bottom - top);
   this->scissoring = true;
 }

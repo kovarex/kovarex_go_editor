@@ -82,7 +82,7 @@ FilePage::FilePage(Theme& theme, std::function<void(const std::filesystem::path&
   this->problem = &agui::label("", &theme.badLabel);
   content << *this->problem;
 
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrameWithPadding);
   panel << content;
   this->window << panel;
 

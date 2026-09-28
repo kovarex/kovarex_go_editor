@@ -84,7 +84,7 @@ GameInfoPage::GameInfoPage(Theme& theme, std::function<void()> onApply, std::fun
   this->gameComment->style.setMaximalHeight(80);
   content << *this->gameComment;
 
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrameWithPadding);
   panel << content;
   this->window << panel;
 

@@ -107,7 +107,7 @@ NewGamePage::NewGamePage(Theme& theme, GameSetup& setup, std::function<void()> o
   this->white->onTextEdit(this, [this] { this->setup.white = this->white->getText(); });
   content << namedRow("White", *this->white);
 
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrameWithPadding);
   panel << content;
   this->window << panel;
 

@@ -199,9 +199,12 @@ private:
 
   void applyScissor();
 
-  // Agui keeps two clip levels: "forced" ones that bound everything drawn
-  // inside them, and ordinary per-widget ones. What reaches the screen is
-  // the intersection. FULL_SCREEN_RECTANGLE means "no clip" at either level.
+  // Agui keeps two clip levels: "forced" ones (scroll panes, inset frames,
+  // drop-down lists) that bound everything drawn inside them, and ordinary
+  // per-widget ones. As in Factorio's GuiGraphics, only the forced one cuts
+  // what reaches the screen -- a widget's glow and shadow reach past it, and
+  // would be cut off by its own clip -- and the intersection is only what
+  // getClippingRectangle() says. FULL_SCREEN_RECTANGLE means "no clip".
   agui::Rectangle forcedClip  = agui::Graphics::FULL_SCREEN_RECTANGLE;
   agui::Rectangle appliedClip = agui::Graphics::FULL_SCREEN_RECTANGLE;
   agui::Rectangle clip        = agui::Graphics::FULL_SCREEN_RECTANGLE;

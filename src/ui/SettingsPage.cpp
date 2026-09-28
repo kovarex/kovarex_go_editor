@@ -1,6 +1,5 @@
 #include <ui/SettingsPage.hpp>
 
-#include <app/Settings.hpp>
 #include <ui/Form.hpp>
 #include <ui/GoSprites.hpp>
 #include <ui/Theme.hpp>
@@ -13,9 +12,11 @@
 #include <Agui/Widget/ImageWidget.hpp>
 #include <Agui/Widget/Label.hpp>
 #include <Agui/Widget/Slider.hpp>
+#include <Agui/Widget/TextField.hpp>
 #include <Agui/Widget/VerticalFlow.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <string>
 
@@ -30,47 +31,78 @@ const Settings DEFAULTS{};
 constexpr int BUTTON_PX = 34;
 constexpr int ICON_PX   = 24;
 
+// The info icon after a name that has a tooltip.
+constexpr int INFO_PX = 14;
+
+// other_settings_gui_button and other_settings_slider.
+constexpr int SETTING_BUTTON_PX = 120;
+constexpr int SLIDER_PX         = 250;
+
 std::string Percent(int value)
 {
   return std::to_string(value) + "%";
 }
 
+std::string DelayText(int delay)
+{
+  if (delay == Settings::Graphics::TOOLTIPS_NEVER) return "Never";
+  if (delay == 0) return "Instant";
+  return std::to_string(delay) + " ms";
+}
+
+// locale core.cfg: reset-to-defaults and reset-to-defaults-disabled.
+std::string ResetTip(int count)
+{
+  if (count == 0) return "All options have default values.";
+  return count == 1 ? "Reset 1 option to default" : "Reset " + std::to_string(count) + " options to defaults";
+}
+
 }  // namespace
 
 SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& settings, std::function<void()> onAssociate,
-                           std::function<void()> onSave, std::function<void()> onBack)
+                           std::function<void()> onConfirm, std::function<void()> onBack)
     : settings(settings)
+    , openedWith(settings)
     , theme(theme)
+    , sprites(sprites)
     , window(agui::GuiDirection::Vertical, "Settings")
 {
   this->window.setDragTarget(&this->window);
   using Graphics = Settings::Graphics;
 
-  agui::VerticalFlow& content = column(0);
-  content.style.setPaddings(8, 12, 12, 12);
+  // scroll_pane_under_subheader's padding round the bordered frames.
+  agui::VerticalFlow& content = column(4);
+  content.style.setPaddings(4, 4, 4, 4);
+  content.style.setMinimalWidth(480);
 
   // --- graphics ---
-  content << agui::label("Graphics", &theme.headingLabel);
-
   this->mode = &make<agui::DropDown>();
   this->mode->addItems({ "Windowed", "Windowed (fullscreen)" });
-  this->mode->setItemToolTip(1, "A borderless window over the whole monitor. The monitor keeps its mode, "
-                                "and alt-tab and other windows work as usual.");
   this->mode->onItemSelect(this, [this](int i) {
     this->settings.graphics.windowedFullscreen = i == 1;
     this->changed();
   });
-  content << this->settingRow("Display mode", *this->mode, [this] {
-    return this->settings.graphics.windowedFullscreen != DEFAULTS.graphics.windowedFullscreen;
+  this->settingRow(this->section(content), "Display mode",
+                   "Windowed (fullscreen) is a borderless window over the whole monitor. The monitor keeps its mode, "
+                   "and alt-tab and other windows work as usual.",
+                   *this->mode);
+  this->track(*this->mode, [this](const Settings& other) {
+    return this->settings.graphics.windowedFullscreen != other.graphics.windowedFullscreen;
   });
 
-  this->vsync = &make<agui::CheckBox>();
-  this->vsync->setToolTip("Wait for the monitor between frames: no tearing, and no more frames than it can show.");
-  this->vsync->onCheckChange(this, [this](bool on) {
-    this->settings.graphics.vsync = on;
+  this->scale = &make<agui::DropDown>();
+  for (int percent = Graphics::MIN_SCALE; percent <= Graphics::MAX_SCALE; percent += Graphics::SCALE_STEP) {
+    this->scale->addItem(Percent(percent));
+  }
+  this->scale->onItemSelect(this, [this](int i) {
+    this->settings.graphics.interfaceScale = Graphics::MIN_SCALE + i * Graphics::SCALE_STEP;
     this->changed();
   });
-  content << this->settingRow("VSync", *this->vsync, [this] { return this->settings.graphics.vsync != DEFAULTS.graphics.vsync; });
+  this->settingRow(this->section(content), "Interface scale",
+                   "How big everything is drawn. Ctrl and numpad + or - change it from anywhere.", *this->scale);
+  this->track(*this->scale, [this](const Settings& other) {
+    return this->settings.graphics.interfaceScale != other.graphics.interfaceScale;
+  });
 
   this->fpsLimits = { 0, 30, 60, 120, 144, 240 };
   // A hand-edited limit that isn't one of the choices gets an item of its own.
@@ -83,79 +115,81 @@ SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& set
     this->settings.graphics.fpsLimit = this->fpsLimits[size_t(i)];
     this->changed();
   });
-  content << this->settingRow("Frame rate limit", *this->fps,
-                              [this] { return this->settings.graphics.fpsLimit != DEFAULTS.graphics.fpsLimit; });
+  this->settingRow(this->section(content), "Frame rate limit", nullptr, *this->fps);
+  this->track(*this->fps, [this](const Settings& other) { return this->settings.graphics.fpsLimit != other.graphics.fpsLimit; });
 
-  this->scale = &make<agui::DropDown>();
-  for (int percent = Graphics::MIN_SCALE; percent <= Graphics::MAX_SCALE; percent += Graphics::SCALE_STEP) {
-    this->scale->addItem(Percent(percent));
+  // Like the autosave interval: a caption, then the slider and a text field
+  // that shows its value and takes a typed one.
+  {
+    agui::Frame& delay = this->section(content);
+    delay << this->name("Tooltip delay",
+                        "How long the mouse rests on something before its tooltip shows. "
+                        "Hold Shift to see tooltips at once, whatever this says.",
+                        &this->theme.captionLabel);
+    // 0 to 200 ms, and one notch past the end for "never".
+    this->tooltipDelay = &make<agui::Slider>();
+    this->tooltipDelay->setMinMaxValues(0, Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP);
+    this->tooltipDelay->setValueStep(Graphics::TOOLTIP_DELAY_STEP);
+    this->tooltipDelay->style.setMinimalWidth(SLIDER_PX);
+    this->tooltipDelay->onSliderMove(this, [this](double v) {
+      const int ms = int(std::lround(v));
+      this->settings.graphics.tooltipDelay = ms > Graphics::MAX_TOOLTIP_DELAY ? Graphics::TOOLTIPS_NEVER : ms;
+      this->refresh();
+    });
+    this->tooltipDelayValue = &make<agui::TextField>(&this->theme.sliderValueField);
+    this->tooltipDelayValue->onConfirm(this, [this] { this->typedTooltipDelay(); });
+    this->tooltipDelayValue->onFocusLose(this, [this] { this->typedTooltipDelay(); });
+    agui::HorizontalFlow& row = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
+    row << *this->tooltipDelay << agui::pusher << *this->tooltipDelayValue;
+    delay << row;
+    // Factorio lights up a slider's knob.
+    this->track(this->tooltipDelay->marker, [this](const Settings& other) {
+      return this->settings.graphics.tooltipDelay != other.graphics.tooltipDelay;
+    });
   }
-  this->scale->setToolTip("How big everything is drawn. Ctrl and numpad + or - change it from anywhere.");
-  this->scale->onItemSelect(this, [this](int i) {
-    this->settings.graphics.interfaceScale = Graphics::MIN_SCALE + i * Graphics::SCALE_STEP;
+
+  this->vsync = &make<agui::CheckBox>(std::string("VSync"));
+  this->vsync->onCheckChange(this, [this](bool on) {
+    this->settings.graphics.vsync = on;
     this->changed();
   });
-  content << this->settingRow("Interface scale", *this->scale,
-                              [this] { return this->settings.graphics.interfaceScale != DEFAULTS.graphics.interfaceScale; });
-
-  // 0 to 200 ms, and one notch past the end for "never".
-  this->tooltipDelay = &make<agui::Slider>();
-  this->tooltipDelay->setMinMaxValues(0, Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP);
-  this->tooltipDelay->setValueStep(Graphics::TOOLTIP_DELAY_STEP);
-  this->tooltipDelay->style.setMinimalWidth(200);
-  this->tooltipDelay->setToolTip("How long the mouse rests on something before its tooltip shows. "
-                                 "Hold Shift to see tooltips at once, whatever this says.");
-  this->tooltipDelayValue = &agui::label("");
-  this->tooltipDelayValue->style.setMinimalWidth(80);
-  this->tooltipDelay->onSliderMove(this, [this](double v) {
-    const int ms = int(std::lround(v));
-    this->settings.graphics.tooltipDelay = ms > Graphics::MAX_TOOLTIP_DELAY ? Graphics::TOOLTIPS_NEVER : ms;
-    this->refresh();
-  });
-  agui::HorizontalFlow& delay = row();
-  delay << *this->tooltipDelay << *this->tooltipDelayValue;
-  content << this->settingRow("Tooltip delay", delay,
-                              [this] { return this->settings.graphics.tooltipDelay != DEFAULTS.graphics.tooltipDelay; });
+  this->checkRow(this->section(content), *this->vsync,
+                 "Wait for the monitor between frames: no tearing, and no more frames than it can show.");
+  this->track(*this->vsync, [this](const Settings& other) { return this->settings.graphics.vsync != other.graphics.vsync; });
 
   // --- the board ---
-  content << agui::label("Board", &theme.headingLabel);
-
-  const auto check = [this, &content](const char* name, bool& value, bool fallback, const char* tip) {
-    agui::CheckBox& box = make<agui::CheckBox>();
-    box.setToolTip(tip);
-    box.onCheckChange(this, [this, &value](bool on) {
-      value = on;
+  agui::Frame& board = this->section(content, "Board");
+  const auto check = [this, &board](const char* name, bool Settings::Board::*field, const char* tip) {
+    agui::CheckBox& box = make<agui::CheckBox>(std::string(name));
+    box.onCheckChange(this, [this, field](bool on) {
+      this->settings.board.*field = on;
       this->changed();
     });
-    content << this->settingRow(name, box, [&value, fallback] { return value != fallback; });
-    this->boardChecks.emplace_back(&box, &value);
+    this->checkRow(board, box, tip);
+    this->track(box, [this, field](const Settings& other) { return this->settings.board.*field != other.board.*field; });
+    this->boardChecks.emplace_back(&box, field);
   };
-  check("Coordinates", settings.board.coordinates, DEFAULTS.board.coordinates,
-        "Letters and numbers round the edge of the board.");
-  check("Move numbers", settings.board.moveNumbers, DEFAULTS.board.moveNumbers,
-        "The move number on every stone, rather than a dot on the last one.");
-  check("Next moves", settings.board.nextMoves, DEFAULTS.board.nextMoves,
-        "Where the variations from the current move go, as faint stones.");
+  check("Coordinates", &Settings::Board::coordinates, "Letters and numbers round the edge of the board.");
+  check("Move numbers", &Settings::Board::moveNumbers, "The move number on every stone, rather than a dot on the last one.");
+  check("Next moves", &Settings::Board::nextMoves, "Where the variations from the current move go, as faint stones.");
 
   // --- files: an action, not a setting, so Reset leaves it be ---
-  content << agui::label("Files", &theme.headingLabel);
-  agui::Frame& files = make<agui::Frame>(agui::GuiDirection::Horizontal, &theme.settingRow);
-  files << namedRow("Open .sgf files", agui::button("Open them with this program", &this->window, std::move(onAssociate),
-                                                   &theme.smallButton));
-  content << files;
-  this->association = &agui::label("", &theme.dimLabel, agui::SingleLine::False);
-  this->association->style.setMaximalWidth(440);
-  this->association->style.setLeftPadding(6);
-  content << *this->association;
+  {
+    agui::Frame& files = this->section(content);
+    agui::Button& associate = agui::button("Open them with this program", &this->window, std::move(onAssociate));
+    associate.style.setMinimalWidth(SETTING_BUTTON_PX);
+    agui::HorizontalFlow& row = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
+    row << this->name("Open .sgf files", nullptr) << agui::pusher << associate;
+    files << row;
+    this->association = &agui::label("", &theme.dimLabel, agui::SingleLine::False);
+    this->association->style.setMaximalWidth(440);
+    files << *this->association;
+  }
 
-  // Factorio's layout: a deep panel with a subheader strip across its top,
-  // and the reset button -- green, a circling arrow -- at the strip's right.
-  // Hovering it lights up every setting it would change; pressing it only
-  // changes the page, and Save changes is still what keeps anything.
-  this->reset = &make<agui::Button>(&theme.greenToolButton);
+  // The subheader, and the reset button at its right end: tool_button_red
+  // with a circling arrow.
+  this->reset = &make<agui::Button>(&theme.redToolButton);
   this->reset->setFocusable(false);
-  this->reset->setToolTip("Reset to defaults. The settings it would change light up while the mouse is here; "
-                          "nothing is kept until Save changes.");
   this->resetIcon = &make<agui::ImageWidget>(sprites.image(Sprite::Reset));
   this->resetIcon->scaleToKeepTheRatio = true;
   this->resetIcon->setIgnoredByInteraction(true);
@@ -164,15 +198,11 @@ SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& set
   this->resetIcon->style.setMinimalHeight(ICON_PX);
   this->resetIcon->style.setMaximalHeight(ICON_PX);
   *this->reset << *this->resetIcon;
-  this->reset->onMouseEnter(this, [this](const agui::MouseEvent&) {
-    this->hoveringReset = true;
-    this->highlight();
-  });
-  this->reset->onMouseLeave(this, [this](const agui::MouseEvent&) {
-    this->hoveringReset = false;
-    this->highlight();
-  });
-  this->reset->onClick(this, [this] {
+  this->reset->onMouseEnter(this, [this](const agui::MouseEvent& event) { this->highlight(this->reset, DEFAULTS, event); });
+  this->reset->onMouseLeave(this, [this](const agui::MouseEvent& event) { this->unhighlight(this->reset, event); });
+  this->reset->onClick(this, [this](const agui::MouseEvent& event) {
+    // Before the reset: after it, nothing says which were lit.
+    this->unhighlight(this->reset, event);
     this->settings.graphics = DEFAULTS.graphics;
     this->settings.board    = DEFAULTS.board;
     this->refresh();
@@ -184,29 +214,106 @@ SettingsPage::SettingsPage(Theme& theme, const GoSprites& sprites, Settings& set
   agui::Frame& subheader = make<agui::Frame>(agui::GuiDirection::Horizontal, &theme.subheaderFrame);
   subheader << strip;
 
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideDeepFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
   panel << subheader << content;
   this->window << panel;
 
-  // dialog_buttons_horizontal_flow: Back throws the changes away, the green
-  // one keeps them.
+  // dialog_buttons_horizontal_flow: Back throws the changes away, and while
+  // the mouse is on it lights up what it would throw away; Confirm keeps them.
+  agui::Button& back = agui::button("Back", &this->window, std::move(onBack), &theme.backButton);
+  back.onMouseEnter(this, [this, &back](const agui::MouseEvent& event) { this->highlight(&back, this->openedWith, event); });
+  back.onMouseLeave(this, [this, &back](const agui::MouseEvent& event) { this->unhighlight(&back, event); });
   agui::HorizontalFlow& footer = row(8);
   footer.style.setTopPadding(8);
   footer.style.setHorizontallyStretchable(true);
-  footer << agui::button("Back", &this->window, std::move(onBack), &theme.backButton);
+  footer << back;
   footer << dragHandle(&theme.draggableSpace, &this->window);
-  footer << footerButton("Save changes", &this->window, std::move(onSave), &theme.forwardButton, 200);
+  footer << footerButton("Confirm", &this->window, std::move(onConfirm), &theme.forwardButton, 200);
   this->window << footer;
 
   this->refresh();
 }
 
-agui::Frame& SettingsPage::settingRow(const char* name, agui::Widget& control, std::function<bool()> differs)
+agui::Frame& SettingsPage::section(agui::VerticalFlow& content, const char* caption)
 {
-  agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Horizontal, &this->theme.settingRow);
-  frame << namedRow(name, control);
-  this->rows.push_back({ &frame, std::move(differs) });
+  agui::Frame& frame = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.borderedFrame);
+  if (caption) frame << agui::label(caption, &this->theme.captionLabel);
+  content << frame;
   return frame;
+}
+
+agui::Widget& SettingsPage::name(const char* text, const char* tip, const agui::LabelStyle* style)
+{
+  agui::Label& label = style ? agui::label(text, style) : agui::label(text);
+  if (!tip) return label;
+  // Factorio's setToolTipWithInfoIcon puts an info icon after the text, and
+  // either of them shows the tooltip.
+  label.setToolTip(tip);
+  agui::HorizontalFlow& flow = row(4);
+  flow << label << this->info(tip);
+  return flow;
+}
+
+agui::ImageWidget& SettingsPage::info(const char* tip)
+{
+  agui::ImageWidget& icon = make<agui::ImageWidget>(this->sprites.image(Sprite::Info));
+  icon.scaleToKeepTheRatio = true;
+  icon.style.setMinimalWidth(INFO_PX);
+  icon.style.setMaximalWidth(INFO_PX);
+  icon.style.setMinimalHeight(INFO_PX);
+  icon.style.setMaximalHeight(INFO_PX);
+  icon.setToolTip(tip);
+  return icon;
+}
+
+void SettingsPage::settingRow(agui::Frame& section, const char* name, const char* tip, agui::Widget& control)
+{
+  agui::HorizontalFlow& flow = make<agui::HorizontalFlow>(&this->theme.playerInputFlow);
+  flow << this->name(name, tip) << agui::pusher << control;
+  section << flow;
+}
+
+void SettingsPage::checkRow(agui::Frame& section, agui::CheckBox& box, const char* tip)
+{
+  if (!tip) {
+    section << box;
+    return;
+  }
+  box.setToolTip(tip);
+  agui::HorizontalFlow& flow = row(4);
+  flow.style.setVerticalAlign(agui::VerticalAlign::Center);
+  flow << box << this->info(tip);
+  section << flow;
+}
+
+void SettingsPage::track(agui::Widget& widget, std::function<bool(const Settings&)> differs)
+{
+  this->tracked.push_back({ &widget, std::move(differs) });
+}
+
+void SettingsPage::highlight(const agui::Widget* source, const Settings& reference, const agui::MouseEvent& event)
+{
+  this->unhighlight(this->litBy, event);
+  this->litBy = source;
+  for (const Setting& s : this->tracked) {
+    if (!s.differs(reference)) continue;
+    s.widget->mouseEnter(event);
+    this->lit.push_back(s.widget);
+  }
+}
+
+void SettingsPage::unhighlight(const agui::Widget* source, const agui::MouseEvent& event)
+{
+  if (source != this->litBy) return;
+  for (agui::Widget* widget : this->lit) widget->mouseLeave(event);
+  this->lit.clear();
+  this->litBy = nullptr;
+}
+
+void SettingsPage::open()
+{
+  this->openedWith = this->settings;
+  this->refresh();
 }
 
 void SettingsPage::refresh()
@@ -217,16 +324,16 @@ void SettingsPage::refresh()
   if (this->vsync->isChecked() != g.vsync) this->vsync->setChecked(g.vsync);
   const auto limit = std::find(this->fpsLimits.begin(), this->fpsLimits.end(), g.fpsLimit);
   if (limit != this->fpsLimits.end()) this->fps->setSelectedIndex(int(limit - this->fpsLimits.begin()));
-  for (const auto& [box, value] : this->boardChecks) {
-    if (box->isChecked() != *value) box->setChecked(*value);
+  for (const auto& [box, field] : this->boardChecks) {
+    if (box->isChecked() != this->settings.board.*field) box->setChecked(this->settings.board.*field);
   }
 
   this->scale->setSelectedIndex((g.interfaceScale - Graphics::MIN_SCALE) / Graphics::SCALE_STEP);
 
-  const int  delay = g.tooltipDelay;
-  const bool never = delay == Graphics::TOOLTIPS_NEVER;
-  this->tooltipDelay->setValue(never ? Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP : delay);
-  this->tooltipDelayValue->setText(never ? std::string("Never") : delay == 0 ? std::string("Instant") : std::to_string(delay) + " ms");
+  const int delay = g.tooltipDelay;
+  this->tooltipDelay->setValue(delay == Graphics::TOOLTIPS_NEVER ? Graphics::MAX_TOOLTIP_DELAY + Graphics::TOOLTIP_DELAY_STEP : delay);
+  // Not under the cursor of someone typing in it.
+  if (!this->tooltipDelayValue->isFocused()) this->tooltipDelayValue->setText(DelayText(delay));
 
   // The icon in the middle of the button. A button's children sit inside its
   // padding, border and all, so that comes off.
@@ -235,22 +342,35 @@ void SettingsPage::refresh()
   this->changed();
 }
 
+void SettingsPage::typedTooltipDelay()
+{
+  using Graphics = Settings::Graphics;
+  std::string text = this->tooltipDelayValue->getText();
+  for (char& c : text) c = char(std::tolower(static_cast<unsigned char>(c)));
+
+  int& delay = this->settings.graphics.tooltipDelay;
+  if (text.find("never") != std::string::npos) {
+    delay = Graphics::TOOLTIPS_NEVER;
+  } else if (text.find("instant") != std::string::npos) {
+    delay = 0;
+  } else if (const size_t digit = text.find_first_of("0123456789"); digit != std::string::npos) {
+    // The nearest step the slider has.
+    const int ms = std::stoi(text.substr(digit, 9));
+    const int step = Graphics::TOOLTIP_DELAY_STEP;
+    delay = std::clamp((ms + step / 2) / step * step, 0, Graphics::MAX_TOOLTIP_DELAY);
+  }
+  // Anything else puts back what was there.
+  this->tooltipDelayValue->setText(DelayText(delay));
+  this->refresh();
+}
+
 void SettingsPage::changed()
 {
   // Nothing to reset when everything is already the default.
-  const bool any = std::any_of(this->rows.begin(), this->rows.end(), [](const Row& r) { return r.differs(); });
-  if (this->reset->isEnabled() != any) this->reset->setEnabled(any);
-  // A disabled button hears no more of the mouse, not even it leaving.
-  if (!any) this->hoveringReset = false;
-  this->highlight();
-}
-
-void SettingsPage::highlight()
-{
-  for (const Row& r : this->rows) {
-    const agui::FrameStyle* look = this->hoveringReset && r.differs() ? &this->theme.settingRowChanged : &this->theme.settingRow;
-    if (r.frame->style.getParent() != look) r.frame->style.setParent(look);
-  }
+  const int count = int(std::count_if(this->tracked.begin(), this->tracked.end(),
+                                      [](const Setting& s) { return s.differs(DEFAULTS); }));
+  if (this->reset->isEnabled() != (count != 0)) this->reset->setEnabled(count != 0);
+  this->reset->setToolTip(ResetTip(count));
 }
 
 void SettingsPage::setAssociation(const std::string& text, bool good)

@@ -64,7 +64,7 @@ HelpPage::HelpPage(Theme& theme, std::function<void()> onBack)
   note.style.setMaximalWidth(620);
   scroll << note;
 
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrameWithPadding);
   panel << scroll;
   this->window << panel;
 
@@ -83,7 +83,7 @@ ConfirmPage::ConfirmPage(Theme& theme, std::function<void()> onSave, std::functi
   this->window.setDragTarget(&this->window);
 
   this->question = &agui::label("");
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &theme.insideShallowFrameWithPadding);
   panel << *this->question;
   this->window << panel;
 

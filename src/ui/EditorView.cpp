@@ -188,7 +188,7 @@ agui::Widget& EditorView::buildTopBar()
 
 agui::Widget& EditorView::buildPlayers()
 {
-  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.insideShallowFrame);
+  agui::Frame& panel = make<agui::Frame>(agui::GuiDirection::Vertical, &this->theme.insideShallowFrameWithPadding);
   agui::VerticalFlow& rows = column(2);
 
   const auto playerRow = [this](Sprite stone, agui::Label*& name, agui::Label*& captures) {

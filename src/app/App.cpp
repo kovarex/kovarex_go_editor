@@ -133,7 +133,7 @@ void App::handle(Command command)
     break;
   case Command::Settings:
     this->kept = this->settings;
-    pages.settings.refresh();
+    pages.settings.open();
     pages.settings.setAssociation(platform::IsSgfAssociated() ? ".sgf files open in this program."
                                                               : ".sgf files open in something else, or nothing.",
                                   platform::IsSgfAssociated());

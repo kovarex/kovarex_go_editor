@@ -358,6 +358,26 @@ void Paint(Sprite sprite, ::Image& sheet)
     c.copyTo(sheet, int(sprite));
     break;
   }
+  case Sprite::Info: {
+    // Factorio's [img=info]: a light blue disc, the letter cut out of it in white.
+    const Rgba blue  = Rgb(110, 170, 230);
+    const Rgba white = Rgb(255, 255, 255);
+    Canvas c(blue);
+    c.layer([&](float x, float y) {
+      Rgba p = blue;
+      p.a    = Cover(Length(x, y) - 0.9f);
+      return p;
+    });
+    c.layer([&](float x, float y) {
+      const float dot  = Length(x, y + 0.42f) - 0.14f;
+      const float stem = Segment(x, y, 0.0f, -0.08f, 0.0f, 0.5f) - 0.13f;
+      Rgba p = white;
+      p.a    = Cover(std::min(dot, stem));
+      return p;
+    });
+    c.copyTo(sheet, int(sprite));
+    break;
+  }
   case Sprite::Count:
     break;
   }

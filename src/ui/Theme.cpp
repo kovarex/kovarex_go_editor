@@ -35,6 +35,7 @@
 #include <Agui/Widget/TabbedPane.hpp>
 #include <Agui/Widget/Table.hpp>
 #include <Agui/Widget/TextBox.hpp>
+#include <Agui/Widget/TextField.hpp>
 #include <Agui/Widget/ToolTip.hpp>
 #include <Agui/Widget/VerticalFlow.hpp>
 
@@ -83,6 +84,7 @@ const agui::Color CAPTION         = Rgb(255, 230, 192);        // gui_color.capt
 const agui::Color ORANGE_TEXT     = Rgb(250, 168, 56);         // gui_color.orange
 const agui::Color GLOW            = Rgb(225, 177, 106);        // default_glow_color
 const agui::Color GREEN_GLOW      = Rgb(135, 216, 139, 128);   // green_button_glow_color
+const agui::Color RED_GLOW        = Rgb(254, 90, 90, 128);     // red_button_glow_color
 const agui::Color SHADOW          = Rgb(0, 0, 0, 89);          // default_shadow_color
 const agui::Color HARD_SHADOW     = Rgb(0, 0, 0);              // hard_shadow_color
 const agui::Color DIRT            = Rgb(15, 7, 3, 100);        // default_dirt_color
@@ -435,6 +437,7 @@ std::unique_ptr<agui::Image> Theme::atlasImage(int x, int y, int w, int h) const
 Theme::Theme()
     : dimLabel(&agui::Label::defaultStyle)
     , headingLabel(&agui::Label::defaultStyle)
+    , captionLabel(&agui::Label::defaultStyle)
     , versionLabel(&agui::Label::defaultStyle)
     , goodLabel(&agui::Label::defaultStyle)
     , badLabel(&agui::Label::defaultStyle)
@@ -445,8 +448,10 @@ Theme::Theme()
     , forwardButton(&this->backButton)
     , menuFrame(&agui::Frame::defaultStyle)
     , insideShallowFrame(&agui::Frame::defaultStyle)
+    , insideShallowFrameWithPadding(&this->insideShallowFrame)
     , insideDeepFrame(&agui::Frame::defaultStyle)
     , subheaderFrame(&agui::Frame::defaultStyle)
+    , borderedFrame(&agui::Frame::defaultStyle)
     , pointPlain(&this->pointBase)
     , pointBlank(&this->pointBase)
     , pointDark(&agui::Label::defaultStyle)
@@ -458,14 +463,19 @@ Theme::Theme()
     , treeNodeCurrent(&this->treeNode)
     , toolButton(&agui::Button::defaultStyle)
     , greenToolButton(&this->toolButton)
-    , settingRow(&agui::Frame::defaultStyle)
-    , settingRowChanged(&this->settingRow)
+    , redToolButton(&this->toolButton)
+    , playerInputFlow(&agui::HorizontalFlow::defaultStyle)
+    , frameSubheadingLabel(&agui::Label::defaultStyle)
+    , sliderValueField(&agui::TextField::defaultStyle)
     , smallButton(&agui::Button::defaultStyle)
-    , smallFont(FontAt(14), 14, FontSpacing(14))
-    , bodyFont(FontAt(16), 16, FontSpacing(16))
-    , boldFont(FontAt(16, true), 16, FontSpacing(16))
-    , headingFont(FontAt(18, true), 18, FontSpacing(18))
-    , bigFont(FontAt(20, true), 20, FontSpacing(20))
+    // style.lua's fonts: default-small, default, default-semibold, default-bold,
+    // heading-2 and heading-1.
+    , smallFont(FontAt(LineHeight(12)), LineHeight(12), 0)
+    , bodyFont(FontAt(LineHeight(14)), LineHeight(14), 0)
+    , semiboldFont(FontAt(LineHeight(14), Weight::SemiBold), LineHeight(14), 0)
+    , boldFont(FontAt(LineHeight(14), Weight::Bold), LineHeight(14), 0)
+    , headingFont(FontAt(LineHeight(15), Weight::Bold), LineHeight(15), 0)
+    , bigFont(FontAt(LineHeight(18), Weight::Bold), LineHeight(18), 0)
 {
   ::Image atlasImg   = LoadImageFromMemory(".png", GUI_ATLAS_PNG, int(GUI_ATLAS_PNG_SIZE));
   ::Image derivedImg = ComposeDerived();
@@ -511,7 +521,7 @@ void Theme::themeBasics()
   // button: grey, orange with a glow when hovered, and a dirty edge.
   const Layer dirt = this->defaultGlow(DIRT);
   agui::ButtonStyle& b = agui::Button::defaultStyle;
-  b.setFont(&this->boldFont);
+  b.setFont(&this->semiboldFont);
   b.setDefaultFontColor(PURE_BLACK);
   b.setHoveredFontColor(PURE_BLACK);
   b.setClickedFontColor(PURE_BLACK);
@@ -580,6 +590,7 @@ void Theme::themeBasics()
   line.bottomEnd = this->picture({ 104, 40, 8, 8 }, PURE_WHITE);
   line.leftEnd   = this->picture({ 112, 40, 8, 8 }, PURE_WHITE);
   agui::Line::defaultStyle.setBorder(line);
+  this->borderedFrame.setBorder(line);  // bordered_frame: border = border_image_set()
 }
 
 void Theme::themeToggles()
@@ -829,6 +840,9 @@ void Theme::themeContainers()
   agui::ToolTip::defaultToolTipStyle.setGraphicalSet(&window);
   agui::ToolTip::defaultToolTipStyle.setUseHeaderFiller(false);
   agui::ToolTip::defaultToolTipStyle.setPadding(8);
+  // tooltip_label: wrapped at this width, not one long line.
+  agui::ToolTip::defaultLabelStyle.setMaximalWidth(356);
+  agui::ToolTip::defaultLabelStyle.setSingleLine(false);
 
   // inside_shallow_frame and inside_deep_frame: panels set into the window.
   // Their rim is drawn outside them, over the window's padding.
@@ -841,10 +855,10 @@ void Theme::themeContainers()
     style->setUseHeaderFiller(false);
     Under(style->initVerticalFlowStyle(), &agui::VerticalFlow::defaultStyle)->setVerticalSpacing(0);
   }
-  this->insideShallowFrame.setPadding(12);  // _with_padding
-  this->insideShallowFrame.setHorizontallyStretchable(true);
+  this->insideShallowFrameWithPadding.setPadding(12);
+  this->insideShallowFrameWithPadding.setHorizontallyStretchable(true);
 
-  // subheader_frame: a lighter strip across the top of an inside_deep_frame,
+  // subheader_frame: a darker strip across the top of an inside_shallow_frame,
   // holding a row of readouts or buttons over whatever the panel shows. It is
   // as wide as the panel and a fixed height, the bottom 4 of it its edge.
   Parts strip;
@@ -1023,7 +1037,7 @@ void Theme::themeLists()
   item->setSelectedHoveredGraphicalSet(&itemHovered);
   item->setSelectedClickedGraphicalSet(&itemClicked);
   item->setDefaultFontColor(PURE_WHITE);
-  item->setFont(&this->boldFont);
+  item->setFont(&this->semiboldFont);  // default-listbox
   item->setHorizontalAlign(agui::HorizontalAlign::Left);
   item->setHorizontallyStretchable(true);
   item->setMinimalWidth(0);
@@ -1103,6 +1117,9 @@ void Theme::themeMenus()
   this->headingLabel.setFont(&this->headingFont);  // heading_2_label
   this->headingLabel.setFontColor(CAPTION);
 
+  this->captionLabel.setFont(&this->boldFont);  // caption_label
+  this->captionLabel.setFontColor(CAPTION);
+
   this->versionLabel.setFont(&this->bodyFont);  // main_menu_version_label
   this->versionLabel.setHoveredFontColor(ORANGE_TEXT);
 
@@ -1136,6 +1153,15 @@ void Theme::themeMenus()
   this->greenToolButton.setHoveredGraphicalSet(&greenHovered);
   this->greenToolButton.setClickedGraphicalSet(&greenClicked);
   this->greenToolButton.setDisabledGraphicalSet(&greenDisabled);
+  // tool_button_red, from red_button.
+  const agui::ElementImageSet red         = Set(this->composition(136, 17, 8), dirt);
+  const agui::ElementImageSet redHovered  = Set(this->composition(170, 17, 8), dirt, this->defaultGlow(RED_GLOW));
+  const agui::ElementImageSet redClicked  = Set(this->composition(187, 17, 8), dirt);
+  const agui::ElementImageSet redDisabled = Set(this->composition(153, 17, 8), dirt);
+  this->redToolButton.setDefaultGraphicalSet(&red);
+  this->redToolButton.setHoveredGraphicalSet(&redHovered);
+  this->redToolButton.setClickedGraphicalSet(&redClicked);
+  this->redToolButton.setDisabledGraphicalSet(&redDisabled);
 
   // back_button (via dialog_button): a grey button whose left end is an arrow.
   // Everything in a row of dialog buttons is this tall, the ridged strip between
@@ -1162,14 +1188,14 @@ void Theme::themeMenus()
   this->backButton.setDisabledGraphicalSet(&backDisabled);
 
   // The same arrow in red, for leaving a game rather than backing out of a page.
-  const agui::ElementImageSet red         = Set(this->arrowBack(RED_ARROWS, 0), this->backButtonGlow(DIRT));
-  const agui::ElementImageSet redHovered  = Set(this->arrowBack(RED_ARROWS, 2), {}, this->backButtonGlow(GLOW));
-  const agui::ElementImageSet redClicked  = Set(this->arrowBack(RED_ARROWS, 3));
-  const agui::ElementImageSet redDisabled = Set(this->arrowBack(RED_ARROWS, 1), {}, this->backButtonGlow(DIRT));
-  this->redBackButton.setDefaultGraphicalSet(&red);
-  this->redBackButton.setHoveredGraphicalSet(&redHovered);
-  this->redBackButton.setClickedGraphicalSet(&redClicked);
-  this->redBackButton.setDisabledGraphicalSet(&redDisabled);
+  const agui::ElementImageSet redBack     = Set(this->arrowBack(RED_ARROWS, 0), this->backButtonGlow(DIRT));
+  const agui::ElementImageSet redBackHovered  = Set(this->arrowBack(RED_ARROWS, 2), {}, this->backButtonGlow(GLOW));
+  const agui::ElementImageSet redBackClicked  = Set(this->arrowBack(RED_ARROWS, 3));
+  const agui::ElementImageSet redBackDisabled = Set(this->arrowBack(RED_ARROWS, 1), {}, this->backButtonGlow(DIRT));
+  this->redBackButton.setDefaultGraphicalSet(&redBack);
+  this->redBackButton.setHoveredGraphicalSet(&redBackHovered);
+  this->redBackButton.setClickedGraphicalSet(&redBackClicked);
+  this->redBackButton.setDisabledGraphicalSet(&redBackDisabled);
 
   // arrow_forward(green_arrow_tileset): the point is on the right, so the text
   // is padded away from that end instead of the other one.
@@ -1289,16 +1315,26 @@ void Theme::themeBoard()
   this->smallButton.setMaximalHeight(28);
   this->smallButton.setHorizontallyStretchable(false);
 
-  // A settings page row: nothing of its own, and a warm tint over the ones
-  // the reset button would change, while it is hovered.
-  this->settingRow.setGraphicalSet(&this->none);
-  this->settingRow.setUseHeaderFiller(false);
-  this->settingRow.setPaddings(2, 6, 2, 6);
-  this->settingRow.setHorizontallyStretchable(true);
-  Under(this->settingRow.initHorizontalFlowStyle(), &agui::HorizontalFlow::defaultStyle)
-      ->setVerticalAlign(agui::VerticalAlign::Center);
-  agui::ElementImageSet changed = solid(Rgb(255, 166, 0, 70));
-  this->settingRowChanged.setGraphicalSet(&changed);
+  // bordered_frame: nothing but the ridged outline (set with the other lines,
+  // in themeBasics) round a group of settings.
+  this->borderedFrame.setGraphicalSet(&this->none);
+  this->borderedFrame.setUseHeaderFiller(false);
+  this->borderedFrame.setPaddings(4, 8, 8, 8);  // frame's
+  this->borderedFrame.setHorizontallyStretchable(true);
+  Under(this->borderedFrame.initVerticalFlowStyle(), &agui::VerticalFlow::defaultStyle)->setVerticalSpacing(4);
+
+  // player_input_horizontal_flow: a setting's name, a pusher and its control.
+  this->playerInputFlow.setHorizontalSpacing(8);
+  this->playerInputFlow.setVerticalAlign(agui::VerticalAlign::Center);
+  this->playerInputFlow.setMinimalHeight(28);
+  this->playerInputFlow.setHorizontallyStretchable(true);
+
+  this->frameSubheadingLabel.setTopPadding(4);  // frame_subheading_label
+
+  // slider_value_textfield, as wide as other_settings_gui_textbox makes it.
+  this->sliderValueField.setMinimalWidth(120);
+  this->sliderValueField.setMaximalWidth(120);
+  this->sliderValueField.setHorizontalAlign(agui::HorizontalAlign::Center);
 
   // The sheet over the editor while a page is up.
   agui::ElementImageSet dim = solid(DIM);
@@ -1317,21 +1353,22 @@ void Theme::setPointSize(int px)
   this->pointBase.setMaximalHeight(px);
 
   // Up to two characters fill the point; three need to be smaller to fit
-  // inside a stone.
-  const agui::Font* big   = this->pointFont(std::max(6, px * 11 / 20));
-  const agui::Font* small = this->pointFont(std::max(6, px * 2 / 5));
+  // inside a stone. (The sizes are whole lines, which Titillium's digits fill
+  // only about two thirds of.)
+  const agui::Font* big   = this->pointFont(std::max(8, px * 7 / 10));
+  const agui::Font* small = this->pointFont(std::max(8, px * 1 / 2));
   this->pointDark.setFont(big);
   this->pointLight.setFont(big);
   this->pointDarkSmall.setFont(small);
   this->pointLightSmall.setFont(small);
 
-  this->coordinate.setFont(this->pointFont(std::clamp(px * 2 / 5, 10, 18)));
+  this->coordinate.setFont(this->pointFont(std::clamp(px / 2, 13, 23)));
 }
 
 const agui::Font* Theme::pointFont(int px)
 {
   std::unique_ptr<agui_raylib::RaylibFont>& font = this->pointFonts[px];
-  if (!font) font = std::make_unique<agui_raylib::RaylibFont>(this->raster(px, true), px, FontSpacing(px));
+  if (!font) font = std::make_unique<agui_raylib::RaylibFont>(this->raster(px, Weight::Bold), px, FontSpacing(px));
   return font.get();
 }
 void Theme::setScale(float scale)
@@ -1339,16 +1376,17 @@ void Theme::setScale(float scale)
   if (scale == this->viewScale) return;
   this->viewScale = scale;
 
-  const std::pair<agui_raylib::RaylibFont*, bool> fonts[] = {
-    { &this->smallFont, false }, { &this->bodyFont, false }, { &this->boldFont, true }, { &this->headingFont, true }, { &this->bigFont, true },
+  const std::pair<agui_raylib::RaylibFont*, Weight> fonts[] = {
+    { &this->smallFont, Weight::Regular }, { &this->bodyFont, Weight::Regular }, { &this->semiboldFont, Weight::SemiBold },
+    { &this->boldFont, Weight::Bold },     { &this->headingFont, Weight::Bold }, { &this->bigFont, Weight::Bold },
   };
-  for (const auto& [font, bold] : fonts) font->setRaster(this->raster(int(font->size()), bold));
-  for (const auto& [px, font] : this->pointFonts) font->setRaster(this->raster(px, true));
+  for (const auto& [font, weight] : fonts) font->setRaster(this->raster(int(font->size()), weight));
+  for (const auto& [px, font] : this->pointFonts) font->setRaster(this->raster(px, Weight::Bold));
 }
 
-const ::Font& Theme::raster(int px, bool bold) const
+const ::Font& Theme::raster(int px, Weight weight) const
 {
-  return FontAt(std::max(1, int(std::lround(float(px) * this->viewScale))), bold);
+  return FontAt(std::max(1, int(std::lround(float(px) * this->viewScale))), weight);
 }
 
 }  // namespace ui

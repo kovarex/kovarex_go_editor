@@ -1,11 +1,9 @@
 // The game's typeface, shared by the HUD and the Agui widgets.
 //
-// Consolas (VS Code's default editor font on Windows) is loaded from the
-// system font folder and rasterised once per pixel size, so text is crisp at
-// every size instead of scaled up from one. Consolas Bold is used for bold
-// text if it's there, regular Consolas if not. If Consolas itself isn't there
-// (another OS, a stripped-down Windows), everything falls back to raylib's
-// built-in font.
+// Titillium Web, the face Factorio's GUI is set in, in its three weights. The
+// .ttf files are compiled into the exe (see fastbuild/fbuild.bff; the licence
+// is src/ui/fonts/OFL.txt) and rasterised once per pixel size, so text is
+// crisp at every size instead of scaled up from one.
 
 #pragma once
 
@@ -13,11 +11,17 @@
 
 namespace ui {
 
-// The font rasterised at `px` pixels tall. Loaded on first use; needs the window.
-const ::Font& FontAt(int px, bool bold = false);
+enum class Weight { Regular, SemiBold, Bold };
 
-// Extra px between characters at `px`: none for the TTF, raylib's usual
-// size/10 for the built-in bitmap font.
+// raylib sizes a font by its whole line, ascender to descender; style.lua's
+// font sizes are the em, which for Titillium is a good deal less. The line a
+// style.lua font of `size` needs.
+int LineHeight(int size);
+
+// The font rasterised at `px` pixels tall. Loaded on first use; needs the window.
+const ::Font& FontAt(int px, Weight weight = Weight::Regular);
+
+// Extra px between characters at `px`: none, the face's own spacing is right.
 float FontSpacing(int px);
 
 // Drop-in replacements for raylib's DrawText / MeasureText.

@@ -12,12 +12,15 @@
 #pragma once
 
 #include <ui/AguiRaylib.hpp>
+#include <ui/Fonts.hpp>
 
 #include <Agui/ElementImageSet.hpp>
 #include <Agui/Widget/ButtonStyle.hpp>
 #include <Agui/Widget/EmptyWidgetStyle.hpp>
 #include <Agui/Widget/FrameStyle.hpp>
+#include <Agui/Widget/HorizontalFlowStyle.hpp>
 #include <Agui/Widget/LabelStyle.hpp>
+#include <Agui/Widget/TextBoxStyle.hpp>
 
 #include <map>
 #include <memory>
@@ -35,6 +38,7 @@ public:
   // Named styles, parented to the defaults.
   agui::LabelStyle  dimLabel;            // grey_label
   agui::LabelStyle  headingLabel;        // heading_2_label
+  agui::LabelStyle  captionLabel;        // caption_label: the bold heading inside a bordered_frame
   agui::LabelStyle  versionLabel;        // main_menu_version_label
   agui::LabelStyle  goodLabel;           // green: something worked
   agui::LabelStyle  badLabel;            // red: something was refused
@@ -44,9 +48,11 @@ public:
   agui::ButtonStyle redBackButton;       // the same in red_arrow_tileset: leaving, not going back
   agui::ButtonStyle forwardButton;       // green, arrow pointing right: the button that gets on with it
   agui::FrameStyle  menuFrame;           // frame, without the drag handle
-  agui::FrameStyle  insideShallowFrame;  // inside_shallow_frame_with_padding
+  agui::FrameStyle  insideShallowFrame;  // inside_shallow_frame
+  agui::FrameStyle  insideShallowFrameWithPadding;  // inside_shallow_frame_with_padding
   agui::FrameStyle  insideDeepFrame;     // inside_deep_frame
   agui::FrameStyle  subheaderFrame;      // subheader_frame: the lighter strip across the top of a deep frame
+  agui::FrameStyle  borderedFrame;       // bordered_frame: a ridged outline round a group of settings
 
   // The Go board. The board is a wooden panel with the grid laid on it as
   // thin widgets, and a button over each point; what is on a point -- a
@@ -68,8 +74,9 @@ public:
 
   // A square button in the tool bar, down while its tool is the one in use.
   agui::ButtonStyle toolButton;
-  // The same in green, like Factorio's reset-to-defaults button.
+  // The same in green, and in red like Factorio's reset-to-defaults button.
   agui::ButtonStyle greenToolButton;
+  agui::ButtonStyle redToolButton;
   // The smaller buttons of the tool bar's other rows.
   agui::ButtonStyle smallButton;
 
@@ -77,10 +84,12 @@ public:
   // buttons, and drags the window it is given as a drag target.
   agui::EmptyWidgetStyle draggableSpace;
 
-  // A row of the settings page. A row goes to settingRowChanged, tinted,
-  // while the reset button is hovered and the row is one it would change.
-  agui::FrameStyle settingRow;
-  agui::FrameStyle settingRowChanged;
+  // The settings page, as Factorio's settings windows lay out: a row of a
+  // setting's name and its control, the name over a slider, and the text
+  // field beside the slider that shows its value and takes a typed one.
+  agui::HorizontalFlowStyle playerInputFlow;       // player_input_horizontal_flow
+  agui::LabelStyle          frameSubheadingLabel;  // frame_subheading_label
+  agui::TextBoxStyle        sliderValueField;      // slider_value_textfield, other_settings_gui_textbox
 
   // The sheet that darkens the game behind the main menu.
   agui::EmptyWidgetStyle dimmer;
@@ -176,7 +185,8 @@ private:
 
   agui_raylib::RaylibFont smallFont;    // default-small
   agui_raylib::RaylibFont bodyFont;     // default
-  agui_raylib::RaylibFont boldFont;     // default-bold / default-semibold
+  agui_raylib::RaylibFont semiboldFont; // default-semibold
+  agui_raylib::RaylibFont boldFont;     // default-bold
   agui_raylib::RaylibFont headingFont;  // heading-2
   agui_raylib::RaylibFont bigFont;      // heading-1 / default-dialog-button
 
@@ -186,8 +196,8 @@ private:
   int pointPx = 0;
 
   float viewScale = 1.0f;
-  // The bold or regular face, rasterised for text `px` tall at viewScale.
-  const ::Font& raster(int px, bool bold) const;
+  // A weight of the face, rasterised for text `px` tall at viewScale.
+  const ::Font& raster(int px, Weight weight) const;
 
   // Sets that styles hold by pointer rather than copying.
   agui::ElementImageSet none;

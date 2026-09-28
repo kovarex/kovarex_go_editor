@@ -116,6 +116,30 @@ Exec( 'GuiAtlas' )
   .ExecArguments  = '"%1" "%2" GUI_ATLAS_PNG ui'
 }
 
+// The typeface too: Titillium Web, the one Factorio's GUI is set in (SIL Open
+// Font License, src/ui/fonts/OFL.txt). See ui/Fonts.cpp.
+Exec( 'FontRegular' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\fonts\TitilliumWeb-Regular.ttf'
+  .ExecOutput     = 'build\generated\FontRegular.cpp'
+  .ExecArguments  = '"%1" "%2" FONT_REGULAR_TTF ui'
+}
+Exec( 'FontSemiBold' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\fonts\TitilliumWeb-SemiBold.ttf'
+  .ExecOutput     = 'build\generated\FontSemiBold.cpp'
+  .ExecArguments  = '"%1" "%2" FONT_SEMIBOLD_TTF ui'
+}
+Exec( 'FontBold' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'src\ui\fonts\TitilliumWeb-Bold.ttf'
+  .ExecOutput     = 'build\generated\FontBold.cpp'
+  .ExecArguments  = '"%1" "%2" FONT_BOLD_TTF ui'
+}
+
 // Agui is a pile of small files that rarely change: compile it as a few
 // unity blobs instead of ~100 separate translation units.
 Unity( 'Agui-Unity' )
@@ -171,9 +195,10 @@ ForEach( .Cfg in .Configs )
                         + ' /external:I"libraries\raylib\external\glfw\include"'
     .CompilerInputPath  = 'src\'
     .CompilerInputPattern = '*.cpp'
-    .CompilerInputFiles = { 'build\generated\GuiAtlas.cpp' }
+    .CompilerInputFiles = { 'build\generated\GuiAtlas.cpp', 'build\generated\FontRegular.cpp',
+                            'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp' }
     .CompilerOutputPath = '$Out$\obj\goeditor\'
-    .PreBuildDependencies = { 'GuiAtlas' }
+    .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold' }
   }
 
   Executable( 'goeditor-$Config$' )

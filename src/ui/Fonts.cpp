@@ -1,64 +1,58 @@
 #include <ui/Fonts.hpp>
 
 #include <cmath>
-#include <cstdlib>
-#include <string>
+#include <cstddef>
 #include <unordered_map>
+#include <utility>
 
 namespace ui {
 
+// The .ttf files, embedded by tools/Embed.cpp at build time.
+extern const unsigned char FONT_REGULAR_TTF[];
+extern const std::size_t   FONT_REGULAR_TTF_SIZE;
+extern const unsigned char FONT_SEMIBOLD_TTF[];
+extern const std::size_t   FONT_SEMIBOLD_TTF_SIZE;
+extern const unsigned char FONT_BOLD_TTF[];
+extern const std::size_t   FONT_BOLD_TTF_SIZE;
+
 namespace {
 
-// In the system font folder, wherever Windows is installed.
-std::string SystemFont(const char* file)
-{
-  const char* windows = std::getenv("WINDIR");
-  return std::string(windows ? windows : "C:/Windows") + "/Fonts/" + file;
-}
+// Titillium Web's hhea ascender + descender (1133 + 388) over its em (1000).
+constexpr float LINE_PER_EM = 1.521f;
 
-const std::string FONT_PATH      = SystemFont("consola.ttf");
-const std::string BOLD_FONT_PATH = SystemFont("consolab.ttf");
-
-// Keyed by px * 2 + bold.
+// Keyed by px * 4 + weight.
 std::unordered_map<int, ::Font>& Cache()
 {
   static std::unordered_map<int, ::Font> fonts;
   return fonts;
 }
 
-bool HaveTtf()
-{
-  static const bool have = FileExists(FONT_PATH.c_str());
-  return have;
-}
-
-bool HaveBoldTtf()
-{
-  static const bool have = FileExists(BOLD_FONT_PATH.c_str());
-  return have;
-}
-
 }  // namespace
 
-const ::Font& FontAt(int px, bool bold)
+int LineHeight(int size)
 {
-  bold = bold && HaveBoldTtf();
+  return int(std::lround(float(size) * LINE_PER_EM));
+}
+
+const ::Font& FontAt(int px, Weight weight)
+{
   auto& fonts = Cache();
-  const int key = px * 2 + (bold ? 1 : 0);
+  const int key = px * 4 + int(weight);
   if (auto it = fonts.find(key); it != fonts.end()) return it->second;
 
-  ::Font font = GetFontDefault();
-  if (HaveTtf()) {
-    // The 95 printable ASCII glyphs.
-    font = LoadFontEx((bold ? BOLD_FONT_PATH : FONT_PATH).c_str(), px, nullptr, 0);
-    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
-  }
+  const auto [data, size] = weight == Weight::Bold       ? std::pair{ FONT_BOLD_TTF, FONT_BOLD_TTF_SIZE }
+                          : weight == Weight::SemiBold ? std::pair{ FONT_SEMIBOLD_TTF, FONT_SEMIBOLD_TTF_SIZE }
+                                                       : std::pair{ FONT_REGULAR_TTF, FONT_REGULAR_TTF_SIZE };
+  // The 95 printable ASCII glyphs.
+  ::Font font = LoadFontFromMemory(".ttf", data, int(size), px, nullptr, 0);
+  if (font.texture.id == 0) font = GetFontDefault();
+  else SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
   return fonts.emplace(key, font).first->second;
 }
 
-float FontSpacing(int px)
+float FontSpacing(int)
 {
-  return HaveTtf() ? 0.0f : float(px) / 10.0f;
+  return 0.0f;
 }
 
 void Text(const char* text, int x, int y, int px, ::Color color)
@@ -73,8 +67,9 @@ int TextWidth(const char* text, int px)
 
 void UnloadFonts()
 {
-  if (HaveTtf())
-    for (auto& [px, font] : Cache()) UnloadFont(font);
+  const ::Font fallback = GetFontDefault();
+  for (auto& [key, font] : Cache())
+    if (font.texture.id != fallback.texture.id) UnloadFont(font);
   Cache().clear();
 }
 
