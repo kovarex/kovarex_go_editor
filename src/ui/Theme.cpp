@@ -923,10 +923,19 @@ void Theme::themeContainers()
   title->setTopPadding(int16_t(titleSlack / 2));
   title->setBottomPadding(int16_t(titleSlack - titleSlack / 2));
 
-  agui::ToolTip::defaultToolTipStyle.setGraphicalSet(&window);
+  // tooltip_frame: a panel of its own, slightly see-through, close round
+  // the text -- no padding above and below it, 4 at the sides.
+  const agui::ElementImageSet tooltip =
+      Set(this->layer(Expand(403, 0, 8), { .tint = agui::Color(1, 1, 1, 0.88f) }), this->defaultGlow(SHADOW));
+  agui::ToolTip::defaultToolTipStyle.setGraphicalSet(&tooltip);
   agui::ToolTip::defaultToolTipStyle.setUseHeaderFiller(false);
-  agui::ToolTip::defaultToolTipStyle.setPadding(8);
+  agui::ToolTip::defaultToolTipStyle.setPaddings(0, 4, 0, 4);
+  Under(agui::ToolTip::defaultToolTipStyle.initVerticalFlowStyle(), &agui::VerticalFlow::defaultStyle)->setVerticalSpacing(2);
   // tooltip_label: wrapped at this width, not one long line.
+  agui::ToolTip::defaultTitleStyle.setFont(&this->boldFont);  // tooltip_title_label
+  agui::ToolTip::defaultTitleStyle.setMinimalWidth(50);
+  agui::ToolTip::defaultTitleStyle.setMaximalWidth(356);
+  agui::ToolTip::defaultLabelStyle.setMinimalWidth(50);
   agui::ToolTip::defaultLabelStyle.setMaximalWidth(356);
   agui::ToolTip::defaultLabelStyle.setSingleLine(false);
   // Keys in a tooltip are in their own font and colour (see ShortcutText).
