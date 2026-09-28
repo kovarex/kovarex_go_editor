@@ -204,7 +204,7 @@ agui::Widget& EditorView::buildPlayers()
   rows << *playerRow(Sprite::WhiteStone, this->whiteName, this->whiteCaptures);
 
   // The move and whose turn it is; under it, the variations from here and
-  // the game's size, komi and result.
+  // the game's komi, handicap and result. (Not its size: the board shows that.)
   agui::HorizontalFlow& move = row(8);
   move.style.setHorizontallyStretchable(true);
   this->moveLabel = &agui::label("");
@@ -279,14 +279,12 @@ agui::Widget& EditorView::buildNavigation()
   agui::VerticalFlow& rows = column(4);
 
   agui::HorizontalFlow& moves = row(4);
+  // Ten moves at a time and the variations are keys only: Page Up and Down,
+  // Up and Down.
   moves << this->commandButton("|<", Command::Start, "To the start (Home)");
-  moves << this->commandButton("<<", Command::BackMany, "Back ten moves (Page Up)");
   moves << this->commandButton("<", Command::Back, "Back one move (Left, or the mouse wheel)", 44);
   moves << this->commandButton(">", Command::Forward, "Forward one move (Right, or the mouse wheel)", 44);
-  moves << this->commandButton(">>", Command::ForwardMany, "Forward ten moves (Page Down)");
   moves << this->commandButton(">|", Command::End, "To the end of this line (End)");
-  moves << this->commandButton("Var -", Command::PreviousVariation, "The previous variation of this move (Up)");
-  moves << this->commandButton("Var +", Command::NextVariation, "The next variation of this move (Down)");
   rows << moves;
 
   agui::HorizontalFlow& edits = row(4);
@@ -494,11 +492,11 @@ void EditorView::refresh()
                                  : node.childCount() == 0 ? std::string("end of the line")
                                                           : std::string());
 
-  std::string about = std::to_string(this->game->width()) +
-                      (this->game->width() == this->game->height() ? "" : "x" + std::to_string(this->game->height()));
-  if (!root.get("KM").empty()) about += "  komi " + root.get("KM");
-  if (!root.get("HA").empty()) about += "  H" + root.get("HA");
-  if (!root.get("RE").empty()) about += "  " + root.get("RE");
+  std::string about;
+  const auto add = [&about](const std::string& part) { about += (about.empty() ? "" : "  ") + part; };
+  if (!root.get("KM").empty()) add("komi " + root.get("KM"));
+  if (!root.get("HA").empty()) add("H" + root.get("HA"));
+  if (!root.get("RE").empty()) add(root.get("RE"));
   this->gameLabel->setText(about);
 
   // The comment: only when another node's comes up, or it changed some
