@@ -185,8 +185,8 @@ agui::Widget& EditorView::buildTopBar()
   this->title->style.setLeftPadding(16);
   bar << *this->title;
   bar << agui::pusher;
-  bar << this->commandButton("Controls", Command::Controls, "Which keys do what", 90);
-  bar << this->commandButton("Settings", Command::Settings, "Graphics, the board, and .sgf files", 90);
+  bar << this->commandButton("Controls", Command::Controls, nullptr, 90);
+  bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
   return bar;
 }
 
