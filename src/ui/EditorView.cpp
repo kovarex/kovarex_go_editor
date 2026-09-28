@@ -44,19 +44,19 @@ struct ToolLook {
 
 // The tool bar, in order: two rows of nine.
 constexpr ToolLook TOOLS[] = {
-  { Tool::Play,           std::nullopt,           "",    "Play moves (Q)\nCtrl+click inserts a move after this one; drag a stone to move it, however long ago it was played." },
-  { Tool::Black,          Sprite::BlackStone,     "",    "Set up black stones (B)" },
-  { Tool::White,          Sprite::WhiteStone,     "",    "Set up white stones (W)" },
-  { Tool::Erase,          std::nullopt,           "Clr", "Clear set-up stones (E)" },
-  { Tool::Triangle,       Sprite::TriangleDark,   "",    "Triangle (T)" },
-  { Tool::Square,         Sprite::SquareDark,     "",    "Square (S)" },
-  { Tool::Circle,         Sprite::CircleDark,     "",    "Circle (C)" },
-  { Tool::Cross,          Sprite::CrossDark,      "",    "Cross (X)" },
-  { Tool::Selected,       Sprite::Selected,       "",    "Selected points (SL)" },
-  { Tool::Letter,         std::nullopt,           "A",   "Letters, A, B, C... (L)" },
-  { Tool::Number,         std::nullopt,           "1",   "Numbers, 1, 2, 3... (N)" },
+  { Tool::Play,           std::nullopt,           "",    "Play moves\nCtrl+click inserts a move after this one; drag a stone to move it, however long ago it was played." },
+  { Tool::Black,          Sprite::BlackStone,     "",    "Set up black stones" },
+  { Tool::White,          Sprite::WhiteStone,     "",    "Set up white stones" },
+  { Tool::Erase,          std::nullopt,           "Clr", "Clear set-up stones" },
+  { Tool::Triangle,       Sprite::TriangleDark,   "",    "Triangle" },
+  { Tool::Square,         Sprite::SquareDark,     "",    "Square" },
+  { Tool::Circle,         Sprite::CircleDark,     "",    "Circle" },
+  { Tool::Cross,          Sprite::CrossDark,      "",    "Cross" },
+  { Tool::Selected,       Sprite::Selected,       "",    "Selected points" },
+  { Tool::Letter,         std::nullopt,           "A",   "Letters, A, B, C..." },
+  { Tool::Number,         std::nullopt,           "1",   "Numbers, 1, 2, 3..." },
   { Tool::Text,           std::nullopt,           "Ab",  "A label of your own: type it in the box on the right" },
-  { Tool::Arrow,          std::nullopt,           "->",  "Arrow: click where it starts, then where it points (A)" },
+  { Tool::Arrow,          std::nullopt,           "->",  "Arrow: click where it starts, then where it points" },
   { Tool::Line,           std::nullopt,           "--",  "Line: click one end, then the other" },
   { Tool::TerritoryBlack, Sprite::TerritoryBlack, "",    "Black's territory" },
   { Tool::TerritoryWhite, Sprite::TerritoryWhite, "",    "White's territory" },
@@ -149,6 +149,7 @@ EditorView::EditorView(agui::Gui& gui, Theme& theme, const GoSprites& sprites)
   gui.add(&this->topBar);
   gui.add(&this->side);
   this->setTool(Tool::Play);
+  this->applyTips();
 }
 
 EditorView::~EditorView()
@@ -163,7 +164,7 @@ agui::Button& EditorView::commandButton(const char* text, Command command, const
   agui::Button& button = agui::button(std::string(text), &this->side, [this, command] { this->pending.push_back(command); },
                                       &this->theme.smallButton);
   button.setFocusable(false);
-  if (tip) button.setToolTip(tip);
+  if (tip) this->tipped.push_back({ &button, command, tip });
   if (width > 0) button.style.setMinimalWidth(width);
   return button;
 }
@@ -172,11 +173,11 @@ agui::Widget& EditorView::buildTopBar()
 {
   agui::HorizontalFlow& bar = row(4);
   bar.style.setHorizontallyStretchable(true);
-  bar << this->commandButton("New", Command::NewGame, "A new game (Ctrl+N)", 60);
-  bar << this->commandButton("Open", Command::Open, "Open a file (Ctrl+O)", 60);
-  bar << this->commandButton("Save", Command::Save, "Save (Ctrl+S)", 60);
-  bar << this->commandButton("Save as", Command::SaveAs, "Save under another name (Ctrl+Shift+S)", 80);
-  bar << this->commandButton("Game info", Command::GameInfo, "Players, result, date and the rest (Ctrl+I)", 100);
+  bar << this->commandButton("New", Command::NewGame, "A new game", 60);
+  bar << this->commandButton("Open", Command::Open, "Open a file", 60);
+  bar << this->commandButton("Save", Command::Save, "Save", 60);
+  bar << this->commandButton("Save as", Command::SaveAs, "Save under another name", 80);
+  bar << this->commandButton("Game info", Command::GameInfo, "Players, result, date and the rest", 100);
   bar << this->commandButton("AI Sensei", Command::AiSensei,
                              "Have AI Sensei review this game: its upload page opens in the browser with the game on it", 100);
 
@@ -184,8 +185,8 @@ agui::Widget& EditorView::buildTopBar()
   this->title->style.setLeftPadding(16);
   bar << *this->title;
   bar << agui::pusher;
-  bar << this->commandButton("Help", Command::Help, "What the keys and clicks do (F1)", 60);
-  bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
+  bar << this->commandButton("Controls", Command::Controls, "Which keys do what", 90);
+  bar << this->commandButton("Settings", Command::Settings, "Graphics, the board, and .sgf files", 90);
   return bar;
 }
 
@@ -233,7 +234,7 @@ agui::Button& EditorView::toolButton(Tool which)
                                       : make<agui::Button>(&this->theme.toolButton);
   button.setFocusable(false);
   button.setToggleButton(true);
-  button.setToolTip(look.tip);
+  this->tipped.push_back({ &button, ToolCommand(which), look.tip });
   button.onClick(this, [this, which] { this->pending.push_back(ToolCommand(which)); });
 
   // Pictures sit in the middle of the button. A button does not lay out
@@ -303,27 +304,26 @@ agui::Widget& EditorView::buildNavigation()
   agui::VerticalFlow& rows = column(4);
 
   agui::HorizontalFlow& moves = row(4);
-  // Ten moves at a time and the variations are keys only: Page Up and Down,
-  // Up and Down.
-  moves << this->commandButton("|<", Command::Start, "To the start (Home)");
-  moves << this->commandButton("<", Command::Back, "Back one move (Left, or the mouse wheel)", 44);
-  moves << this->commandButton(">", Command::Forward, "Forward one move (Right, or the mouse wheel)", 44);
-  moves << this->commandButton(">|", Command::End, "To the end of this line (End)");
+  // Ten moves at a time and the variations are keys only (see Controls).
+  moves << this->commandButton("|<", Command::Start, "To the start");
+  moves << this->commandButton("<", Command::Back, "Back one move\nThe mouse wheel does it too.", 44);
+  moves << this->commandButton(">", Command::Forward, "Forward one move\nThe mouse wheel does it too.", 44);
+  moves << this->commandButton(">|", Command::End, "To the end of this line");
   agui::HorizontalFlow& edits = row(4);
-  edits << this->commandButton("Pass", Command::Pass, "Pass (Ctrl+P)");
-  edits << this->commandButton("Undo", Command::Undo, "Undo (Ctrl+Z)");
-  edits << this->commandButton("Redo", Command::Redo, "Redo (Ctrl+Y)");
+  edits << this->commandButton("Pass", Command::Pass, "Pass");
+  edits << this->commandButton("Undo", Command::Undo, "Undo");
+  edits << this->commandButton("Redo", Command::Redo, "Redo");
   agui::HorizontalFlow& top = row(4);
   top.style.setHorizontallyStretchable(true);
   top << (this->group("Navigate") << moves) << (this->group("Moves") << edits);
   rows << top;
 
   agui::HorizontalFlow& variation = row(4);
-  variation << this->commandButton("Delete", Command::DeleteBranch, "Delete this move and everything after it (Delete)");
-  variation << this->commandButton("Main line", Command::PromoteMainLine, "Make this line the main line (Ctrl+M)");
-  variation << this->commandButton("Cut", Command::Cut, "Cut this move and everything after it (Ctrl+X)");
-  variation << this->commandButton("Copy", Command::Copy, "Copy this move and everything after it (Ctrl+C)");
-  variation << this->commandButton("Paste", Command::Paste, "Paste what was cut or copied as a new variation here (Ctrl+V)");
+  variation << this->commandButton("Delete", Command::DeleteBranch, "Delete this move and everything after it");
+  variation << this->commandButton("Main line", Command::PromoteMainLine, "Make this line the main line");
+  variation << this->commandButton("Cut", Command::Cut, "Cut this move and everything after it");
+  variation << this->commandButton("Copy", Command::Copy, "Copy this move and everything after it");
+  variation << this->commandButton("Paste", Command::Paste, "Paste what was cut or copied as a new variation here");
   rows << (this->group("Variation") << variation);
   return rows;
 }
@@ -377,6 +377,26 @@ void EditorView::setTitle(const std::string& text)
 void EditorView::setBoardOptions(const BoardView::Options& options)
 {
   this->board.setOptions(options);
+}
+
+void EditorView::setBindings(const Bindings& bindings)
+{
+  if (bindings == this->tippedWith) return;
+  this->tippedWith = bindings;
+  this->applyTips();
+}
+
+void EditorView::applyTips()
+{
+  for (const Tipped& t : this->tipped) {
+    const std::string keys = this->tippedWith.keysFor(t.command);
+    if (keys.empty()) {
+      t.button->setToolTip(t.tip);
+      continue;
+    }
+    const size_t end = std::min(t.tip.find('\n'), t.tip.size());
+    t.button->setToolTip(t.tip.substr(0, end) + " (" + keys + ")" + t.tip.substr(end));
+  }
 }
 
 void EditorView::setTreeNumbers(bool on)
@@ -448,7 +468,7 @@ void EditorView::run(Command command)
   case Command::Cut:
     // Nothing is cut that can't be deleted: the start of the game can't.
     if (!this->game->current().parent()) {
-      this->message("The start of the game can't be cut; Ctrl+C copies the whole game.", false);
+      this->message("The start of the game can't be cut, only copied: that copies the whole game.", false);
       break;
     }
     agui::SystemClipboard::copy(this->game->copyBranch());

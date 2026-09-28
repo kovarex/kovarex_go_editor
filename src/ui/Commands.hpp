@@ -58,10 +58,16 @@ enum class Command {
   GameInfo,
   AiSensei,  // opens AI Sensei's upload page in the browser, the game on it
   Settings,
-  Help,
+  Controls,
 
   // Esc: closes a page, lets go of a text box, or drops a half-drawn arrow.
   Cancel,
+
+  // The interface scale a step bigger or smaller -- from the automatic one,
+  // which they leave for a manual one -- or back to automatic.
+  ScaleUp,
+  ScaleDown,
+  ScaleAutomatic,
 
   // Picking a tool; ToolFirst + int(tool).
   ToolFirst,

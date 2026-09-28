@@ -12,7 +12,7 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
     , gameInfo(theme, [this] { this->finish(Action::ApplyGameInfo); }, [this] { this->finish(Action::Back); })
     , settings(theme, config, [this] { this->pending = Action::Associate; }, [this] { this->finish(Action::SaveSettings); },
                [this] { this->finish(Action::DiscardSettings); })
-    , help(theme, [this] { this->finish(Action::Back); })
+    , controls(theme, config, [this] { this->finish(Action::SaveControls); }, [this] { this->finish(Action::Back); })
     , files(theme,
             [this](const std::filesystem::path& path) {
               this->chosen = path;
@@ -24,7 +24,7 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
 {
   this->dimmer.style.setParent(&theme.dimmer);
   gui.add(&this->dimmer);  // before the pages, so they are not dimmed too
-  for (Page p : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Help, Page::Files, Page::Confirm }) {
+  for (Page p : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::Files, Page::Confirm }) {
     gui.add(this->window(p));
   }
   this->open(Page::None);
@@ -32,7 +32,7 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
 
 Pages::~Pages()
 {
-  for (Page p : { Page::Confirm, Page::Files, Page::Help, Page::Settings, Page::GameInfo, Page::NewGame }) {
+  for (Page p : { Page::Confirm, Page::Files, Page::Controls, Page::Settings, Page::GameInfo, Page::NewGame }) {
     this->gui.remove(this->window(p));
   }
   this->gui.remove(&this->dimmer);
@@ -44,7 +44,7 @@ agui::Window* Pages::window(Page p)
   case Page::NewGame:  return &this->newGame.root();
   case Page::GameInfo: return &this->gameInfo.root();
   case Page::Settings: return &this->settings.root();
-  case Page::Help:     return &this->help.root();
+  case Page::Controls: return &this->controls.root();
   case Page::Files:    return &this->files.root();
   case Page::Confirm:  return &this->confirm.root();
   case Page::None:     break;
@@ -57,7 +57,7 @@ void Pages::open(Page p)
   this->page     = p;
   this->recentre = true;
   this->dimmer.setVisible(p != Page::None);
-  for (Page each : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Help, Page::Files, Page::Confirm }) {
+  for (Page each : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::Files, Page::Confirm }) {
     this->window(each)->setVisible(each == p);
   }
   // Whatever had the keyboard is behind the sheet now.
@@ -80,6 +80,8 @@ void Pages::layout(int screenWidth, int screenHeight)
 
   this->dimmer.setLocation(0, 0);
   this->dimmer.setSize(screenWidth, screenHeight, agui::SetSizeInfo());
+
+  this->controls.fit(screenHeight);
 
   agui::Window* shown = this->window(this->page);
   if (!shown) return;

@@ -1,5 +1,5 @@
 // The pages that come up over the editor -- New game, Game info, Settings,
-// Help, the file browser, and the unsaved-changes question -- one at a time,
+// Controls, the file browser, and the unsaved-changes question -- one at a time,
 // with a dark sheet over the editor behind. Each is a window of its own,
 // dragged by its title, centred when it opens.
 //
@@ -10,7 +10,8 @@
 
 #include <ui/FilePage.hpp>
 #include <ui/GameInfoPage.hpp>
-#include <ui/HelpPage.hpp>
+#include <ui/ConfirmPage.hpp>
+#include <ui/ControlsPage.hpp>
 #include <ui/NewGamePage.hpp>
 #include <ui/SettingsPage.hpp>
 
@@ -31,7 +32,7 @@ class Theme;
 
 class Pages : public agui::GenericTargetable {
 public:
-  enum class Page { None, NewGame, GameInfo, Settings, Help, Files, Confirm };
+  enum class Page { None, NewGame, GameInfo, Settings, Controls, Files, Confirm };
 
   enum class Action {
     None,
@@ -43,6 +44,7 @@ public:
     Associate,        // Settings: make .sgf files open here
     SaveSettings,     // Settings' Save changes: keep what the page changed
     DiscardSettings,  // Settings' Back: put back what there was when it opened
+    SaveControls,     // Controls' Confirm: keep the keys the page changed
     Back,           // a page's Back or Cancel: nothing to do, and nothing waiting on it either
   };
 
@@ -68,7 +70,7 @@ public:
   NewGamePage  newGame;
   GameInfoPage gameInfo;
   SettingsPage settings;
-  HelpPage     help;
+  ControlsPage controls;
   FilePage     files;
   ConfirmPage  confirm;
 

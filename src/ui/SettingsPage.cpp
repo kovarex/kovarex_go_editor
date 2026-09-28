@@ -24,12 +24,9 @@ namespace ui {
 
 namespace {
 
-// What Reset puts back: the settings a first run starts with.
+// What the reset button puts back: the settings a first run starts with.
 const Settings DEFAULTS{};
 
-// The reset button (tool_button_red) and the icon on it.
-constexpr int BUTTON_PX = 28;
-constexpr int ICON_PX   = 16;
 
 // The info icon after a name that has a tooltip: as tall as a line of text.
 constexpr int INFO_W = 8;
@@ -51,12 +48,6 @@ std::string DelayText(int delay)
   return std::to_string(delay) + " ms";
 }
 
-// locale core.cfg: reset-to-defaults and reset-to-defaults-disabled.
-std::string ResetTip(int count)
-{
-  if (count == 0) return "All options have default values.";
-  return count == 1 ? "Reset 1 option to default" : "Reset " + std::to_string(count) + " options to defaults";
-}
 
 }  // namespace
 
@@ -67,6 +58,12 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
     , openedWith(live)
     , theme(theme)
     , window(agui::GuiDirection::Vertical, "Settings")
+    , resettable(theme,
+                 [this] {
+                   this->settings.graphics = DEFAULTS.graphics;
+                   this->settings.board    = DEFAULTS.board;
+                   this->refresh();
+                 })
 {
   this->window.setDragTarget(&this->window);
   using Graphics = Settings::Graphics;
@@ -87,7 +84,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
                    "Windowed (fullscreen) is a borderless window over the whole monitor. The monitor keeps its mode, "
                    "and alt-tab and other windows work as usual.",
                    *this->mode);
-  this->track(*this->mode, [this](const Settings& other) {
+  this->resettable.track(*this->mode, [this](const Settings& other) {
     return this->settings.graphics.windowedFullscreen != other.graphics.windowedFullscreen;
   });
 
@@ -131,10 +128,10 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
            << *this->manualScaleSlider << *this->manualScaleValue;
     scale << manual;
 
-    this->track(*this->automaticScale, [this](const Settings& other) {
+    this->resettable.track(*this->automaticScale, [this](const Settings& other) {
       return this->settings.graphics.automaticScale != other.graphics.automaticScale;
     });
-    this->track(this->manualScaleSlider->marker, [this](const Settings& other) {
+    this->resettable.track(this->manualScaleSlider->marker, [this](const Settings& other) {
       return this->settings.graphics.interfaceScale != other.graphics.interfaceScale;
     });
   }
@@ -151,7 +148,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
     this->changed();
   });
   this->settingRow(this->section(content), "Frame rate limit", nullptr, *this->fps);
-  this->track(*this->fps, [this](const Settings& other) { return this->settings.graphics.fpsLimit != other.graphics.fpsLimit; });
+  this->resettable.track(*this->fps, [this](const Settings& other) { return this->settings.graphics.fpsLimit != other.graphics.fpsLimit; });
 
   // Like the autosave interval: a caption, then the slider and a text field
   // that shows its value and takes a typed one.
@@ -178,7 +175,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
     row << *this->tooltipDelay << agui::pusher << *this->tooltipDelayValue;
     delay << row;
     // Factorio lights up a slider's knob.
-    this->track(this->tooltipDelay->marker, [this](const Settings& other) {
+    this->resettable.track(this->tooltipDelay->marker, [this](const Settings& other) {
       return this->settings.graphics.tooltipDelay != other.graphics.tooltipDelay;
     });
   }
@@ -190,7 +187,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   });
   this->checkRow(this->section(content), *this->vsync,
                  "Wait for the monitor between frames: no tearing, and no more frames than it can show.");
-  this->track(*this->vsync, [this](const Settings& other) { return this->settings.graphics.vsync != other.graphics.vsync; });
+  this->resettable.track(*this->vsync, [this](const Settings& other) { return this->settings.graphics.vsync != other.graphics.vsync; });
 
   // --- the board ---
   agui::Frame& board = this->section(content, "Board");
@@ -201,7 +198,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
       this->changed();
     });
     this->checkRow(board, box, tip);
-    this->track(box, [this, field](const Settings& other) { return this->settings.board.*field != other.board.*field; });
+    this->resettable.track(box, [this, field](const Settings& other) { return this->settings.board.*field != other.board.*field; });
     this->boardChecks.emplace_back(&box, field);
   };
   check("Coordinates", &Settings::Board::coordinates, "Letters and numbers round the edge of the board.");
@@ -223,31 +220,10 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
     files << *this->association;
   }
 
-  // The subheader, and the reset button at its right end: tool_button_red
-  // with Factorio's reset arrow, dark, or white while it is disabled.
-  this->reset = &make<agui::Button>(&theme.redToolButton);
-  this->reset->setFocusable(false);
-  this->resetIcon = &make<agui::ImageWidget>(theme.resetIcon(true));
-  this->resetIcon->scaleToKeepTheRatio = true;
-  this->resetIcon->setIgnoredByInteraction(true);
-  this->resetIcon->style.setMinimalWidth(ICON_PX);
-  this->resetIcon->style.setMaximalWidth(ICON_PX);
-  this->resetIcon->style.setMinimalHeight(ICON_PX);
-  this->resetIcon->style.setMaximalHeight(ICON_PX);
-  *this->reset << *this->resetIcon;
-  this->reset->onMouseEnter(this, [this](const agui::MouseEvent& event) { this->highlight(this->reset, DEFAULTS, event); });
-  this->reset->onMouseLeave(this, [this](const agui::MouseEvent& event) { this->unhighlight(this->reset, event); });
-  this->reset->onClick(this, [this](const agui::MouseEvent& event) {
-    // Before the reset: after it, nothing says which were lit.
-    this->unhighlight(this->reset, event);
-    this->settings.graphics = DEFAULTS.graphics;
-    this->settings.board    = DEFAULTS.board;
-    this->refresh();
-  });
-
   agui::HorizontalFlow& strip = row();
   strip.style.setHorizontallyStretchable(true);
-  strip << agui::pusher << *this->reset;
+  // The subheader, and the reset button at its right end.
+  strip << agui::pusher << this->resettable.resetButton();
   agui::Frame& subheader = make<agui::Frame>(agui::GuiDirection::Horizontal, &theme.subheaderFrame);
   subheader << strip;
 
@@ -258,8 +234,7 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   // dialog_buttons_horizontal_flow: Back throws the changes away, and while
   // the mouse is on it lights up what it would throw away; Confirm keeps them.
   agui::Button& back = agui::button("Back", &this->window, std::move(onBack), &theme.backButton);
-  back.onMouseEnter(this, [this, &back](const agui::MouseEvent& event) { this->highlight(&back, this->openedWith, event); });
-  back.onMouseLeave(this, [this, &back](const agui::MouseEvent& event) { this->unhighlight(&back, event); });
+  this->resettable.lightWhileHovered(back, [this]() -> const Settings& { return this->openedWith; });
   agui::HorizontalFlow& footer = row(8);
   footer.style.setTopPadding(8);
   footer.style.setHorizontallyStretchable(true);
@@ -342,29 +317,8 @@ void SettingsPage::typedManualScale()
   this->refresh();
 }
 
-void SettingsPage::track(agui::Widget& widget, std::function<bool(const Settings&)> differs)
-{
-  this->tracked.push_back({ &widget, std::move(differs) });
-}
 
-void SettingsPage::highlight(const agui::Widget* source, const Settings& reference, const agui::MouseEvent& event)
-{
-  this->unhighlight(this->litBy, event);
-  this->litBy = source;
-  for (const Setting& s : this->tracked) {
-    if (!s.differs(reference)) continue;
-    s.widget->mouseEnter(event);
-    this->lit.push_back(s.widget);
-  }
-}
 
-void SettingsPage::unhighlight(const agui::Widget* source, const agui::MouseEvent& event)
-{
-  if (source != this->litBy) return;
-  for (agui::Widget* widget : this->lit) widget->mouseLeave(event);
-  this->lit.clear();
-  this->litBy = nullptr;
-}
 
 void SettingsPage::open()
 {
@@ -400,10 +354,6 @@ void SettingsPage::refresh()
   // Not under the cursor of someone typing in it.
   if (!this->tooltipDelayValue->isFocused()) this->tooltipDelayValue->setText(DelayText(delay));
 
-  // The icon in the middle of the button. A button's children sit inside its
-  // padding, border and all, so that comes off.
-  this->resetIcon->setLocation((BUTTON_PX - ICON_PX) / 2 - this->reset->getLeftPadding(),
-                               (BUTTON_PX - ICON_PX) / 2 - this->reset->getTopPadding());
   this->changed();
 }
 
@@ -431,14 +381,7 @@ void SettingsPage::typedTooltipDelay()
 
 void SettingsPage::changed()
 {
-  // Nothing to reset when everything is already the default.
-  const int count = int(std::count_if(this->tracked.begin(), this->tracked.end(),
-                                      [](const Setting& s) { return s.differs(DEFAULTS); }));
-  if (this->reset->isEnabled() != (count != 0)) {
-    this->reset->setEnabled(count != 0);
-    this->resetIcon->setImage(this->theme.resetIcon(count != 0));
-  }
-  this->reset->setToolTip(ResetTip(count));
+  this->resettable.changed();
 }
 
 void SettingsPage::setAssociation(const std::string& text, bool good)

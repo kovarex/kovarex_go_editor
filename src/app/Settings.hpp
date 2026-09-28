@@ -5,6 +5,7 @@
 #pragma once
 
 #include <game/Game.hpp>
+#include <ui/Controls.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -67,6 +68,9 @@ struct Settings {
   Graphics graphics;
   Board    board;
   Window   window;
+
+  // The keys for each control; see ui::AllControls.
+  ui::Bindings controls;
 
   // What the New game page is set up for: the last game started.
   GameSetup newGame;

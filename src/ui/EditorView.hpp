@@ -12,6 +12,7 @@
 #include <game/Game.hpp>
 #include <ui/BoardView.hpp>
 #include <ui/Commands.hpp>
+#include <ui/Controls.hpp>
 #include <ui/TreeView.hpp>
 
 #include <Agui/GenericTargetable.hpp>
@@ -49,6 +50,8 @@ public:
   // What the top bar says the file is.
   void setTitle(const std::string& title);
   void setBoardOptions(const BoardView::Options& options);
+  // The buttons' tooltips name the keys that do the same.
+  void setBindings(const Bindings& bindings);
   // Move numbers on the game tree's stones.
   void setTreeNumbers(bool on);
   // The interface scale, in percent, which the board lines its grid up with.
@@ -90,6 +93,8 @@ private:
   // the group's name at its top.
   agui::Frame& group(const char* caption);
   void setTool(Tool tool);
+  // The tooltips of `tipped`, with the keys tippedWith has for them.
+  void applyTips();
 
   void refresh();
   void placeIcons();
@@ -125,6 +130,16 @@ private:
   agui::Widget*    upper = nullptr;  // everything in the side panel above the comment
 
   std::array<agui::Button*, size_t(Tool::Count)> toolButtons{};
+
+  // Every button that does what a control does, with its tooltip before
+  // the keys are added to it: they go on the end of its first line.
+  struct Tipped {
+    agui::Button* button;
+    Command       command;
+    std::string   tip;
+  };
+  std::vector<Tipped> tipped;
+  Bindings            tippedWith;
 
   // A picture on a tool button, and where it goes, from the button's outer
   // top-left corner.

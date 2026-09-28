@@ -56,6 +56,16 @@ Settings Settings::load()
   s.newGame.white    = ini.getString("new-game", "white", s.newGame.white);
 
   s.folder = ini.getString("files", "folder", s.folder);
+
+  // A control missing from the file keeps its default; one written with
+  // nothing after the = was cleared on purpose.
+  const std::vector<ui::Control>& controls = ui::AllControls();
+  for (size_t i = 0; i < controls.size(); ++i) {
+    ui::Bindings::Pair& keys = s.controls.keys[i];
+    const std::string   id   = controls[i].id;
+    keys.primary     = ui::ParseKey(ini.getString("controls", id, ui::KeyText(keys.primary)));
+    keys.alternative = ui::ParseKey(ini.getString("controls", id + "-alternative", ui::KeyText(keys.alternative)));
+  }
   return s;
 }
 
@@ -86,6 +96,14 @@ void Settings::save() const
   ini.set("new-game", "white", this->newGame.white);
 
   ini.set("files", "folder", this->folder);
+
+  const std::vector<ui::Control>& all = ui::AllControls();
+  for (size_t i = 0; i < all.size(); ++i) {
+    const ui::Bindings::Pair& keys = this->controls.keys[i];
+    const std::string         id   = all[i].id;
+    ini.set("controls", id, keys.primary.isSet() ? ui::KeyText(keys.primary) : "");
+    ini.set("controls", id + "-alternative", keys.alternative.isSet() ? ui::KeyText(keys.alternative) : "");
+  }
 
   if (!ini.save(path(), "Go editor settings. The editor rewrites this file, so edit it while the editor isn't running.")) {
     TraceLog(LOG_WARNING, "SETTINGS: Couldn't write %s", path().string().c_str());

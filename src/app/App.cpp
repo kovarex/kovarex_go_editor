@@ -79,7 +79,17 @@ void App::frame()
   // Shortcuts first, before the Gui hands the same keys to whatever has the
   // focus. Whether a text box has the caret is last frame's answer, which is
   // the one the player was looking at.
-  const std::vector<Command> keys = this->shortcuts.poll(this->gui.editor().typing(), this->gui.pages().isOpen());
+  // While the Controls page waits for keys, they are for it, and nothing is
+  // a shortcut; a click anywhere gives up waiting (and, on one of its
+  // buttons, starts again).
+  std::vector<Command> keys;
+  ui::ControlsPage& controls = this->gui.pages().controls;
+  if (controls.waiting()) {
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) controls.stop();
+    else if (const std::optional<ui::KeyCombo> pressed = this->shortcuts.capture()) controls.assign(*pressed);
+  } else {
+    keys = this->shortcuts.poll(this->settings.controls, this->gui.editor().typing(), this->gui.pages().isOpen());
+  }
 
   // Settings next: a change made last frame -- a new interface scale, say --
   // is in place before the Gui lays itself out for this one.
@@ -133,8 +143,14 @@ void App::handle(Command command)
   case Command::AiSensei:
     this->sendToAiSensei();
     break;
-  case Command::Help:
-    pages.open(ui::Pages::Page::Help);
+  case Command::Controls:
+    pages.controls.open();
+    pages.open(ui::Pages::Page::Controls);
+    break;
+  case Command::ScaleUp:
+  case Command::ScaleDown:
+  case Command::ScaleAutomatic:
+    this->scale(command);
     break;
   case Command::Cancel:
     // Esc on a page is its Back button.
@@ -190,6 +206,10 @@ void App::handlePages()
     // applies it from here on.
     this->settings.graphics = pages.settings.draft().graphics;
     this->settings.board    = pages.settings.draft().board;
+    this->settings.save();
+    break;
+  case ui::Pages::Action::SaveControls:
+    this->settings.controls = pages.controls.draft();
     this->settings.save();
     break;
   case ui::Pages::Action::DiscardSettings:
@@ -379,33 +399,32 @@ void App::updateTitle()
   SetWindowTitle((title + " - " + cfg::APP_NAME).c_str());
 }
 
+void App::scale(Command command)
+{
+  // A step up or down, from anywhere -- from the automatic scale, which it
+  // leaves for a manual one, as Factorio's do -- or back to automatic. Kept
+  // and applied at once, unless the settings page is up: there it is one
+  // more change to the page's draft, which only Confirm keeps.
+  const bool onPage = this->gui.pages().current() == ui::Pages::Page::Settings;
+  Settings::Graphics& graphics = onPage ? this->gui.pages().settings.draft().graphics : this->settings.graphics;
+  if (command == Command::ScaleAutomatic) {
+    if (graphics.automaticScale) return;
+    graphics.automaticScale = true;
+  } else {
+    const int step = command == Command::ScaleUp ? Settings::Graphics::SCALE_STEP : -Settings::Graphics::SCALE_STEP;
+    const int from = graphics.automaticScale ? AutomaticInterfaceScale(GetScreenWidth(), GetScreenHeight())
+                                             : graphics.interfaceScale;
+    graphics.interfaceScale = ClampedInterfaceScale(from + step);
+    graphics.automaticScale = false;
+  }
+  if (onPage) this->gui.pages().settings.refresh();
+  else        this->settings.save();
+}
+
 void App::updateSettings()
 {
-  const int automatic = AutomaticInterfaceScale(GetScreenWidth(), GetScreenHeight());
-  this->gui.pages().settings.setAutomaticScale(automatic);
+  this->gui.pages().settings.setAutomaticScale(AutomaticInterfaceScale(GetScreenWidth(), GetScreenHeight()));
 
-  // Ctrl and the numpad's + and - step the interface scale, from anywhere --
-  // from the automatic one, which they leave for a manual one, as Factorio's
-  // do; Ctrl and numpad 0 go back to automatic. Kept and applied at once,
-  // unless the settings page is up: there it is one more change to the
-  // page's draft, which only Confirm keeps.
-  if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
-    const bool onPage = this->gui.pages().current() == ui::Pages::Page::Settings;
-    Settings::Graphics& graphics = onPage ? this->gui.pages().settings.draft().graphics : this->settings.graphics;
-    const int  steps = int(IsKeyPressed(KEY_KP_ADD)) - int(IsKeyPressed(KEY_KP_SUBTRACT));
-    const bool reset = IsKeyPressed(KEY_KP_0);
-    if (steps != 0 || (reset && !graphics.automaticScale)) {
-      if (reset) {
-        graphics.automaticScale = true;
-      } else {
-        const int from          = graphics.automaticScale ? automatic : graphics.interfaceScale;
-        graphics.interfaceScale = ClampedInterfaceScale(from + steps * Settings::Graphics::SCALE_STEP);
-        graphics.automaticScale = false;
-      }
-      if (onPage) this->gui.pages().settings.refresh();
-      else        this->settings.save();
-    }
-  }
   const Settings::Graphics& graphics = this->settings.graphics;
 
   // The scale drawn at: on automatic, it follows the window as it is resized.
@@ -417,6 +436,7 @@ void App::updateSettings()
   this->gui.editor().setBoardOptions({ this->settings.board.coordinates, this->settings.board.moveNumbers,
                                        this->settings.board.nextMoves });
   this->gui.editor().setTreeNumbers(this->settings.board.treeNumbers);
+  this->gui.editor().setBindings(this->settings.controls);
 
   // Bring the window and the Gui in line with the settings, when Confirm on
   // the settings page (or the scale's shortcut) has changed them.

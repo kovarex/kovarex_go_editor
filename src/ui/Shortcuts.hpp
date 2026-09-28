@@ -8,38 +8,33 @@
 // Gui is never told it was pressed (see RaylibInput::setKeyFilter). Whatever
 // has the focus, a shortcut does the same thing.
 //
-// The one exception is a text box with the caret in it: there the arrows,
-// Delete, letters and cut, copy and paste are for the text, so only the other
-// shortcuts with Ctrl, the function keys and Esc -- which lets go of the text
+// Which keys do what is the player's to choose (see Controls). The one
+// exception is a text box with the caret in it: there the plain keys are the
+// text's, and so are Ctrl with A, C, V and X, so only the other combinations
+// with Ctrl or Alt, the function keys and Esc -- which lets go of the text
 // box -- still work.
 
 #pragma once
 
 #include <ui/Commands.hpp>
+#include <ui/Controls.hpp>
 
+#include <optional>
 #include <vector>
 
 namespace ui {
 
-struct Shortcut {
-  int         key;  // raylib KEY_*
-  bool        ctrl;
-  bool        shift;
-  Command     command;
-  bool        repeats;  // held down, it goes again, like stepping through a game
-  const char* keys;     // for the Help page
-  const char* what;
-};
-
-// Every shortcut, in the order the Help page lists them.
-const std::vector<Shortcut>& AllShortcuts();
-
 class Shortcuts {
 public:
   // Reads this frame's key presses. `typing` means a text box has the caret;
-  // `dialog` that a page is up over the editor, where only Esc and the
-  // file shortcuts apply.
-  std::vector<Command> poll(bool typing, bool dialog);
+  // `dialog` that a page is up over the editor, where only Esc (Cancel) and
+  // the interface scale apply.
+  std::vector<Command> poll(const Bindings& bindings, bool typing, bool dialog);
+
+  // For the Controls page, waiting for the keys to bind: the first key
+  // pressed this frame that can be bound, with the modifiers held with it,
+  // or nothing. The key is claimed, so nothing else sees it.
+  std::optional<KeyCombo> capture();
 
   // Whether the Gui should be kept from seeing this raylib key this frame.
   bool claimed(int key) const;

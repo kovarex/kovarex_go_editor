@@ -20,7 +20,9 @@
 #include <Agui/Widget/FrameStyle.hpp>
 #include <Agui/Widget/HorizontalFlowStyle.hpp>
 #include <Agui/Widget/LabelStyle.hpp>
+#include <Agui/Widget/ScrollPaneStyle.hpp>
 #include <Agui/Widget/SliderStyle.hpp>
+#include <Agui/Widget/TableStyle.hpp>
 #include <Agui/Widget/TextBoxStyle.hpp>
 
 #include <map>
@@ -95,6 +97,14 @@ public:
   agui::TextBoxStyle        sliderValueField;      // slider_value_textfield, other_settings_gui_textbox
   agui::SliderStyle         notchedSlider;         // notched_slider: a notch per value, a pointed knob
 
+  // The Controls page, as Factorio's control settings: a section per group
+  // of controls, each a table of rows with the keys on two buttons.
+  agui::ScrollPaneStyle scrollPaneUnderSubheader;  // scroll_pane_under_subheader, from naked_scroll_pane
+  agui::FrameStyle  shallowFrame;          // shallow_frame
+  agui::TableStyle  controlTable;          // control_settings_bordered_table
+  agui::ButtonStyle controlButton;         // control_settings_button, from rounded_button
+  agui::ButtonStyle controlConflictButton; // the same in red: the keys do something else too
+
   // The sheet that darkens the game behind the main menu.
   agui::EmptyWidgetStyle dimmer;
 
@@ -152,6 +162,7 @@ private:
   Layer topShadow();
   Layer bottomShadow();
   Layer roundedCornersGlow(const agui::Color& tint);
+  Layer roundedButtonGlow(const agui::Color& tint);
   Layer tabGlow(const agui::Color& tint);
   Layer radiobuttonGlow(const agui::Color& tint);
   Layer slidingGlow(int x, const agui::Color& tint);  // left/right_slider_glow

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <app/Settings.hpp>
+#include <ui/Resettable.hpp>
 
 #include <Agui/GenericTargetable.hpp>
 #include <Agui/Widget/RadioButtonGroup.hpp>
@@ -88,21 +89,6 @@ private:
   // A check box or radio button followed by an info icon, when it has a tip.
   agui::Widget& withInfo(agui::ToggleButton& toggle, const char* tip);
 
-  // A setting as the reset and Back buttons see it: the control to light up,
-  // and whether the setting differs from what it is in `other`.
-  struct Setting {
-    agui::Widget*                          widget;
-    std::function<bool(const Settings&)> differs;
-  };
-  void track(agui::Widget& widget, std::function<bool(const Settings&)> differs);
-
-  // While the mouse is on `source`, the control of every setting that
-  // differs from `reference` is told the mouse is on it too, which is how
-  // Factorio lights them up. Only `source` leaving puts them back, so the
-  // mouse going from one button straight to the other keeps the second's.
-  void highlight(const agui::Widget* source, const Settings& reference, const agui::MouseEvent& event);
-  void unhighlight(const agui::Widget* source, const agui::MouseEvent& event);
-
   // After any change: the reset button is only there to press when there is
   // something to reset, and says how much.
   void changed();
@@ -117,6 +103,7 @@ private:
   Settings         openedWith;  // the draft as the page opened, for Back's highlight
   Theme&           theme;
   agui::Window     window;
+  Resettable       resettable;
 
   std::vector<int> fpsLimits;  // what each of the drop-down's items means
   agui::DropDown*  mode              = nullptr;
@@ -131,12 +118,6 @@ private:
   agui::Slider*    tooltipDelay      = nullptr;
   agui::TextField* tooltipDelayValue = nullptr;
   agui::Label*     association       = nullptr;
-  agui::Button*    reset             = nullptr;
-  agui::ImageWidget* resetIcon       = nullptr;
-
-  std::vector<Setting>       tracked;
-  std::vector<agui::Widget*> lit;  // what highlight() lit up
-  const agui::Widget*        litBy = nullptr;
 
   // The board's check boxes, and the setting each stands for.
   std::vector<std::pair<agui::CheckBox*, bool Settings::Board::*>> boardChecks;

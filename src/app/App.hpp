@@ -44,6 +44,8 @@ private:
   void handleDroppedFiles();
   void handleClose();
   void updateSettings();
+  // The interface scale's controls: a step up or down, or back to automatic.
+  void scale(Command command);
   void updateTitle();
 
   // Asks about unsaved changes, if there are any, and then does `then`.

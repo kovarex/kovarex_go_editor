@@ -338,6 +338,13 @@ Theme::Layer Theme::roundedCornersGlow(const agui::Color& tint)
                { .outer = true, .tint = tint, .topShift = 4, .bottomShift = -4, .leftShift = 4, .rightShift = -4 });
 }
 
+// style.lua: rounded_button_glow.
+Theme::Layer Theme::roundedButtonGlow(const agui::Color& tint)
+{
+  return this->layer(Expand(256, 191, 16),
+               { .outer = true, .tint = tint, .topShift = 4, .bottomShift = -4, .leftShift = 4, .rightShift = -4 });
+}
+
 Theme::Layer Theme::tabGlow(const agui::Color& tint)
 {
   Parts p;
@@ -489,6 +496,11 @@ Theme::Theme()
     , frameSubheadingLabel(&agui::Label::defaultStyle)
     , sliderValueField(&agui::TextField::defaultStyle)
     , notchedSlider(&agui::Slider::defaultStyle)
+    , scrollPaneUnderSubheader(&agui::ScrollPane::defaultStyle)
+    , shallowFrame(&agui::Frame::defaultStyle)
+    , controlTable(&agui::Table::defaultStyle)
+    , controlButton(&agui::Button::defaultStyle)
+    , controlConflictButton(&this->controlButton)
     , smallButton(&agui::Button::defaultStyle)
     // style.lua's fonts: default-small, default, default-semibold, default-bold,
     // heading-2 and heading-1.
@@ -622,6 +634,9 @@ void Theme::themeBasics()
   line.leftEnd   = this->picture({ 112, 40, 8, 8 }, PURE_WHITE);
   agui::Line::defaultStyle.setBorder(line);
   this->borderedFrame.setBorder(line);  // bordered_frame: border = border_image_set()
+  // control_settings_bordered_table, from bordered_table: the same lines
+  // round it and between its rows.
+  this->controlTable.setBorder(line);
 }
 
 void Theme::themeToggles()
@@ -1410,6 +1425,61 @@ void Theme::themeBoard()
   this->sliderValueField.setMinimalWidth(120);
   this->sliderValueField.setMaximalWidth(120);
   this->sliderValueField.setHorizontalAlign(agui::HorizontalAlign::Center);
+
+  // scroll_pane_under_subheader: no frame of its own, the panel it is in is
+  // the frame.
+  this->scrollPaneUnderSubheader.initGraphicalSet(&this->none);
+  this->scrollPaneUnderSubheader.setExtraPaddingWhenActivated(0);
+  this->scrollPaneUnderSubheader.setPadding(4);
+
+  // shallow_frame: a lighter panel, here a section of the Controls page.
+  const agui::ElementImageSet shallow = Set(this->composition(68, 0, 8));
+  this->shallowFrame.setGraphicalSet(&shallow);
+  this->shallowFrame.setUseHeaderFiller(false);
+  this->shallowFrame.setPadding(4);
+  this->shallowFrame.setHorizontallyStretchable(true);
+  Under(this->shallowFrame.initVerticalFlowStyle(), &agui::VerticalFlow::defaultStyle);
+  Under(this->shallowFrame.initHorizontalFlowStyle(), &agui::HorizontalFlow::defaultStyle)
+      ->setVerticalAlign(agui::VerticalAlign::Center);
+
+  // control_settings_bordered_table (its lines are set in themeBasics): as
+  // wide as the section, its edges over the section's padding.
+  this->controlTable.setCellPadding(4);
+  this->controlTable.setLeftCellPadding(8);
+  this->controlTable.setHorizontalSpacing(0);
+  this->controlTable.setVerticalSpacing(0);
+  this->controlTable.setLeftMargin(-4);
+  this->controlTable.setRightMargin(-4);
+  this->controlTable.setBottomMargin(-4);
+  this->controlTable.setTopMargin(4);
+  this->controlTable.setHorizontallyStretchable(true);
+
+  // control_settings_button, from rounded_button: lighter than a button, and
+  // down (selected) while it waits for the keys.
+  const Layer roundedDirt = this->roundedButtonGlow(DIRT);
+  const agui::ElementImageSet rounded         = Set(this->composition(168, 200, 8), roundedDirt);
+  const agui::ElementImageSet roundedHovered  = Set(this->composition(202, 200, 8), roundedDirt, this->roundedButtonGlow(GLOW));
+  const agui::ElementImageSet roundedClicked  = Set(this->composition(219, 200, 8), roundedDirt);
+  const agui::ElementImageSet roundedDisabled = Set(this->composition(185, 200, 8), roundedDirt);
+  const agui::ElementImageSet roundedSelected = Set(this->composition(236, 200, 8), roundedDirt);
+  this->controlButton.setDefaultGraphicalSet(&rounded);
+  this->controlButton.setHoveredGraphicalSet(&roundedHovered);
+  this->controlButton.setClickedGraphicalSet(&roundedClicked);
+  this->controlButton.setDisabledGraphicalSet(&roundedDisabled);
+  this->controlButton.setSelectedGraphicalSet(&roundedSelected);
+  this->controlButton.setSelectedHoveredGraphicalSet(&roundedSelected);
+  this->controlButton.setSelectedClickedGraphicalSet(&roundedSelected);
+  this->controlButton.setHorizontalAlign(agui::HorizontalAlign::Left);
+  this->controlButton.setMinimalWidth(224);  // 225 in style.lua; kept to whole modules
+  this->controlButton.setMaximalWidth(224);
+  this->controlButton.setHorizontallyStretchable(false);
+  // Factorio's colour for keys it can't make sense of, here for keys that
+  // are another control's too.
+  const agui::Color conflict = Rgb(204, 0, 0);
+  for (auto set : { &agui::ButtonStyle::setDefaultFontColor, &agui::ButtonStyle::setHoveredFontColor,
+                    &agui::ButtonStyle::setClickedFontColor, &agui::ButtonStyle::setSelectedFontColor,
+                    &agui::ButtonStyle::setSelectedHoveredFontColor, &agui::ButtonStyle::setSelectedClickedFontColor })
+      (this->controlConflictButton.*set)(conflict);
 
   // The sheet over the editor while a page is up.
   agui::ElementImageSet dim = solid(DIM);
