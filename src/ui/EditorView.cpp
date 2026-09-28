@@ -187,6 +187,7 @@ agui::Widget& EditorView::buildTopBar()
   bar << agui::pusher;
   bar << this->commandButton("Controls", Command::Controls, nullptr, 90);
   bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
+  bar << this->commandButton("About", Command::About, nullptr, 70);
   return bar;
 }
 

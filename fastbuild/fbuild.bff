@@ -173,6 +173,15 @@ Exec( 'IconSearch' )
   .ExecArguments  = '"%1" "%2" ICON_SEARCH_PNG ui'
 }
 
+// The icon again, big, for the About page to show.
+Exec( 'AppIcon' )
+{
+  .ExecExecutable = 'build\tools\Embed.exe'
+  .ExecInput      = 'resources\icon\goeditor-256.png'
+  .ExecOutput     = 'build\generated\AppIcon.cpp'
+  .ExecArguments  = '"%1" "%2" APP_ICON_PNG ui'
+}
+
 // The exe's own resources -- its icon -- compiled by the Windows SDK's resource
 // compiler, and linked in as they are (see resources/goeditor.rc).
 Exec( 'Resources' )
@@ -275,10 +284,10 @@ ForEach( .Cfg in .Configs )
                             'build\generated\FontSemiBold.cpp', 'build\generated\FontBold.cpp',
                             'build\generated\IconInfo.cpp', 'build\generated\IconReset.cpp',
                             'build\generated\IconResetWhite.cpp', 'build\generated\IconSearch.cpp',
-                            'build\generated\BoardWood.cpp' }
+                            'build\generated\BoardWood.cpp', 'build\generated\AppIcon.cpp' }
     .CompilerOutputPath = '$Out$\obj\goeditor\'
     .PreBuildDependencies = { 'GuiAtlas', 'FontRegular', 'FontSemiBold', 'FontBold',
-                              'IconInfo', 'IconReset', 'IconResetWhite', 'IconSearch', 'BoardWood' }
+                              'IconInfo', 'IconReset', 'IconResetWhite', 'IconSearch', 'BoardWood', 'AppIcon' }
   }
 
   Executable( 'goeditor-$Config$' )

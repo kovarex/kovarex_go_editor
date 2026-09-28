@@ -143,6 +143,9 @@ void App::handle(Command command)
   case Command::AiSensei:
     this->sendToAiSensei();
     break;
+  case Command::About:
+    pages.open(ui::Pages::Page::About);
+    break;
   case Command::Controls:
     pages.controls.open();
     pages.open(ui::Pages::Page::Controls);
@@ -217,6 +220,11 @@ void App::handlePages()
     this->settings.controls = pages.controls.draft();
     this->settings.save();
     break;
+  case ui::Pages::Action::OpenProjectPage: {
+    std::string error;
+    if (!platform::OpenInBrowser(ui::PROJECT_URL, &error)) this->gui.editor().message(error, false);
+    break;
+  }
   case ui::Pages::Action::DiscardSettings:
     break;  // the page's draft is dropped, and the settings were never touched
   case ui::Pages::Action::Back:

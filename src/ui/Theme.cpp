@@ -54,6 +54,8 @@ extern const unsigned char ICON_RESET_WHITE_PNG[];
 extern const std::size_t   ICON_RESET_WHITE_PNG_SIZE;
 extern const unsigned char ICON_SEARCH_PNG[];
 extern const std::size_t   ICON_SEARCH_PNG_SIZE;
+extern const unsigned char APP_ICON_PNG[];
+extern const std::size_t   APP_ICON_PNG_SIZE;
 
 struct Theme::Parts {
   std::optional<Piece> leftTop, top, rightTop;
@@ -475,12 +477,20 @@ std::unique_ptr<agui::Image> Theme::searchIcon() const
   return std::make_unique<agui_raylib::RaylibImage>(this->search, ::Rectangle{ 0, 0, 32, 32 });
 }
 
+// resources/icon/goeditor-256.png, the exe's icon at its biggest: 128 x 128
+// in the GUI, as big as Factorio's About shows its own.
+std::unique_ptr<agui::Image> Theme::appIcon() const
+{
+  return std::make_unique<agui_raylib::RaylibImage>(this->appIconTexture, ::Rectangle{ 0, 0, 256, 256 }, SPRITE_SCALE);
+}
+
 // ------------------------------------------------------------------- theme
 
 Theme::Theme(float scale)
     : dimLabel(&agui::Label::defaultStyle)
     , headingLabel(&agui::Label::defaultStyle)
     , captionLabel(&agui::Label::defaultStyle)
+    , linkLabel(&agui::Label::defaultStyle)
     , versionLabel(&agui::Label::defaultStyle)
     , goodLabel(&agui::Label::defaultStyle)
     , badLabel(&agui::Label::defaultStyle)
@@ -554,6 +564,7 @@ Theme::Theme(float scale)
   this->reset      = load(ICON_RESET_PNG, ICON_RESET_PNG_SIZE);
   this->resetWhite = load(ICON_RESET_WHITE_PNG, ICON_RESET_WHITE_PNG_SIZE);
   this->search     = load(ICON_SEARCH_PNG, ICON_SEARCH_PNG_SIZE);
+  this->appIconTexture = load(APP_ICON_PNG, APP_ICON_PNG_SIZE);
 
   // --- root defaults: every property a widget might read is set here ---
   // For rich text's [font=...], by style.lua's names.
@@ -1238,6 +1249,11 @@ void Theme::themeMenus()
 
   this->captionLabel.setFont(&this->boldFont);  // caption_label
   this->captionLabel.setFontColor(CAPTION);
+
+  // hyperlink_label: gui_color.blue, lighter under the mouse, underlined.
+  this->linkLabel.setFontColor(Rgb(128, 206, 240));
+  this->linkLabel.setHoveredFontColor(Rgb(154, 250, 255));
+  this->linkLabel.setUnderlined(true);
 
   this->versionLabel.setFont(&this->bodyFont);  // main_menu_version_label
   this->versionLabel.setHoveredFontColor(ORANGE_TEXT);

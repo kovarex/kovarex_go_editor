@@ -10,6 +10,7 @@
 
 #include <ui/FilePage.hpp>
 #include <ui/GameInfoPage.hpp>
+#include <ui/AboutPage.hpp>
 #include <ui/ConfirmPage.hpp>
 #include <ui/ControlsPage.hpp>
 #include <ui/NewGamePage.hpp>
@@ -34,7 +35,7 @@ class Theme;
 
 class Pages : public agui::GenericTargetable {
 public:
-  enum class Page { None, NewGame, GameInfo, Settings, Controls, Files, Confirm };
+  enum class Page { None, NewGame, GameInfo, Settings, Controls, About, Files, Confirm };
 
   enum class Action {
     None,
@@ -47,6 +48,7 @@ public:
     SaveSettings,     // Settings' Save changes: keep what the page changed
     DiscardSettings,  // Settings' Back: put back what there was when it opened
     SaveControls,     // Controls' Confirm: keep the keys the page changed
+    OpenProjectPage,  // About's link: the project's page in the browser
     Back,           // a page's Back or Cancel: nothing to do, and nothing waiting on it either
   };
 
@@ -80,6 +82,7 @@ public:
   GameInfoPage gameInfo;
   SettingsPage settings;
   ControlsPage controls;
+  AboutPage    about;
   FilePage     files;
   ConfirmPage  confirm;
 

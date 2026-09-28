@@ -44,6 +44,7 @@ public:
   agui::LabelStyle  dimLabel;            // grey_label
   agui::LabelStyle  headingLabel;        // heading_2_label
   agui::LabelStyle  captionLabel;        // caption_label: the bold heading inside a bordered_frame
+  agui::LabelStyle  linkLabel;           // hyperlink_label: a web address, blue and underlined
   agui::LabelStyle  versionLabel;        // main_menu_version_label
   agui::LabelStyle  goodLabel;           // green: something worked
   agui::LabelStyle  badLabel;            // red: something was refused
@@ -141,6 +142,8 @@ public:
   std::unique_ptr<agui::Image> resetIcon(bool enabled) const;
   // The search button's magnifying glass, white.
   std::unique_ptr<agui::Image> searchIcon() const;
+  // The editor's own icon, big, for the About page.
+  std::unique_ptr<agui::Image> appIcon() const;
 
   // A plain (not 9-sliced) picture cut from the atlas, for ImageWidget.
   // Coordinates are atlas pixels; it shows at half that size, like the rest.
@@ -217,6 +220,7 @@ private:
 
   std::shared_ptr<Texture2D> atlas;
   std::shared_ptr<Texture2D> info, reset, resetWhite, search;  // the utility sprites
+  std::shared_ptr<Texture2D> appIconTexture;  // the exe's icon, for About
   // Pieces the atlas doesn't have (the drop-down arrow), drawn at load time.
   std::shared_ptr<Texture2D> derived;
   std::vector<std::unique_ptr<agui_raylib::RaylibImage>> images;

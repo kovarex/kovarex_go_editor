@@ -145,6 +145,7 @@ const std::vector<Control>& AllControls()
     { "cancel",          Command::Cancel,         "Close or cancel",      "Closes a page, leaves a text box, or drops a half-drawn arrow.", S::Interface, false, Key(KEY_ESCAPE) },
     { "settings",        Command::Settings,       "Settings",             nullptr, S::Interface, false, NONE },
     { "controls",        Command::Controls,       "Controls",             nullptr, S::Interface, false, NONE },
+    { "about",           Command::About,          "About",                nullptr, S::Interface, false, NONE },
     { "focus-search",    Command::FocusSearch,    "Focus search",         "The search of the Settings or Controls page.", S::Interface, false, CtrlKey(KEY_F) },
     { "scale-up",        Command::ScaleUp,        "Bigger interface",     "One step up the UI scale, from the automatic one if that is in use.", S::Interface, false, CtrlKey(KEY_KP_ADD) },
     { "scale-down",      Command::ScaleDown,      "Smaller interface",    "One step down the UI scale, from the automatic one if that is in use.", S::Interface, false, CtrlKey(KEY_KP_SUBTRACT) },

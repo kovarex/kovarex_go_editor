@@ -64,6 +64,7 @@ enum class Command {
   AiSensei,  // opens AI Sensei's upload page in the browser, the game on it
   Settings,
   Controls,
+  About,
 
   // Opens the search of the page that is up, or puts the caret back in it.
   FocusSearch,
