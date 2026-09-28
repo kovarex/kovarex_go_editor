@@ -213,7 +213,9 @@ void TreeView::rebuild()
 
     const Stone color = Game::MoveColor(*p.node);
     agui::ImageWidget& icon = make<agui::ImageWidget>(
-        this->sprites.image(color == Stone::Black ? Sprite::BlackStone : color == Stone::White ? Sprite::WhiteStone : Sprite::TreeSetup));
+        this->sprites.image(color == Stone::Black   ? Sprite::BlackStone
+                            : color == Stone::White ? WhiteShell(unsigned(p.column) * 73856093u ^ unsigned(p.row) * 19349663u)
+                                                    : Sprite::TreeSetup));
     icon.scaleToKeepTheRatio = true;
     icon.setIgnoredByInteraction(true);
     const bool pass = this->game->isPass(*p.node);

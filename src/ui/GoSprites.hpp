@@ -22,7 +22,16 @@ namespace ui {
 
 enum class Sprite {
   BlackStone,
+  // Clamshell white stones, each with growth lines of its own; WhiteShell()
+  // picks one.
   WhiteStone,
+  WhiteStone2,
+  WhiteStone3,
+  WhiteStone4,
+  WhiteStone5,
+  WhiteStone6,
+  WhiteStone7,
+  WhiteStone8,
   // Marks come in a dark version, for empty points and white stones, and a
   // light one for black stones.
   TriangleDark,
@@ -33,7 +42,6 @@ enum class Sprite {
   CircleLight,
   CrossDark,
   CrossLight,
-  LastMove,        // the dot on the stone just played
   Selected,        // SL: a tinted square over the point
   TerritoryBlack,  // TB and TW: small squares
   TerritoryWhite,
@@ -45,6 +53,16 @@ enum class Sprite {
   TreeDiagonal,
   Count
 };
+
+// One of the white stones, always the same one for the same `seed`: a
+// point's stone keeps its looks move after move.
+inline Sprite WhiteShell(unsigned seed)
+{
+  constexpr unsigned SHELLS = unsigned(Sprite::WhiteStone8) - unsigned(Sprite::WhiteStone) + 1;
+  seed = (seed ^ (seed >> 16)) * 0x45d9f3bu;
+  seed ^= seed >> 16;
+  return Sprite(unsigned(Sprite::WhiteStone) + seed % SHELLS);
+}
 
 class GoSprites {
 public:

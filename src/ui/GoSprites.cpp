@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <vector>
 
@@ -131,12 +132,69 @@ private:
 // real ones do.
 constexpr float STONE_R = 0.93f;
 
-// The soft shadow a stone casts down and to the right.
+// --- noise, for what makes real stones each a little different ---
+
+// A number in -1..1 that looks random but is always the same for `n`.
+float Hash(int seed)
+{
+  uint32_t n = uint32_t(seed);
+  n = (n << 13) ^ n;
+  n = n * (n * n * 15731u + 789221u) + 1376312589u;
+  return 1.0f - float(n & 0x7fffffffu) / 1073741824.0f;
+}
+
+// Smooth noise along a line: -1..1, changing about once per unit.
+float Noise(float x, int seed)
+{
+  const float fl = std::floor(x);
+  const int   i  = int(fl);
+  const float f  = x - fl;
+  const float t  = f * f * (3.0f - 2.0f * f);
+  return Hash(i + seed * 7919) + (Hash(i + 1 + seed * 7919) - Hash(i + seed * 7919)) * t;
+}
+
+// The same over the plane.
+float Noise(float x, float y, int seed)
+{
+  const float fy = std::floor(y);
+  const int   j  = int(fy);
+  const float t  = (y - fy) * (y - fy) * (3.0f - 2.0f * (y - fy));
+  const float a  = Noise(x, seed + j * 131), b = Noise(x, seed + (j + 1) * 131);
+  return a + (b - a) * t;
+}
+
+// A stone is a lens, domed on top: the light falls on it from the top left,
+// a little in front. How brightly a point is lit, and how near it is to the
+// mirror image of the light -- the highlight.
+struct Lit {
+  float diffuse;   // 0..1
+  float specular;  // 0..1
+};
+
+Lit Light(float x, float y)
+{
+  const float u  = x / STONE_R, v = y / STONE_R;
+  const float r2 = std::min(1.0f, u * u + v * v);
+  // The dome's height, flattened: a go stone is far from a ball.
+  const float h = 0.55f * std::sqrt(1.0f - r2);
+  float nx = u, ny = v, nz = h + 0.35f;
+  const float n = std::sqrt(nx * nx + ny * ny + nz * nz);
+  nx /= n, ny /= n, nz /= n;
+  constexpr float LX = -0.45f, LY = -0.55f, LZ = 0.70f;  // toward the light, normalised
+  const float diffuse = Clamp01(nx * LX + ny * LY + nz * LZ);
+  // Blinn: halfway between the light and the eye (straight above).
+  constexpr float HX = -0.26f, HY = -0.32f, HZ = 0.91f;
+  const float specular = std::pow(Clamp01(nx * HX + ny * HY + nz * HZ), 40.0f);
+  return { diffuse, specular };
+}
+
+// The shadow a stone casts down and to the right, soft at its edge.
 void Shadow(Canvas& canvas)
 {
   canvas.layer([](float x, float y) {
+    // Just inside the picture's edge: it can't draw past it.
     const float d = Length(x - 0.05f, y - 0.07f) - STONE_R;
-    return Rgb(0, 0, 0, 0.35f * (1.0f - SmoothStep(-0.06f, 0.06f, d)));
+    return Rgb(0, 0, 0, 0.6f * (1.0f - SmoothStep(-0.14f, 0.0f, d)));
   });
 }
 
@@ -144,24 +202,56 @@ void BlackStone(Canvas& canvas)
 {
   Shadow(canvas);
   canvas.layer([](float x, float y) {
-    // Slate: nearly black, with a soft sheen up and to the left.
-    const float sheen = Length(x + 0.35f, y + 0.42f);
-    Rgba c = Mix(Rgb(92, 92, 98), Rgb(16, 16, 18), SmoothStep(0.0f, 0.85f, sheen));
+    // Slate: a deep, cool black, matte, with a broad soft sheen where the
+    // light falls, a small brighter glint, and the stone's fine grain.
+    const Lit   lit   = Light(x, y);
+    const float grain = 0.5f * Noise(x * 40.0f, y * 40.0f, 3) + 0.25f * Noise(x * 90.0f, y * 90.0f, 5);
+    Rgba c = Mix(Rgb(6, 6, 8), Rgb(58, 60, 66), std::pow(lit.diffuse, 3.0f));
+    c = Mix(c, Rgb(150, 154, 162), 0.55f * lit.specular);
+    c.r += grain * 0.012f, c.g += grain * 0.012f, c.b += grain * 0.014f;
     c.a = Cover(Length(x, y) - STONE_R);
     return c;
   });
 }
 
-void WhiteStone(Canvas& canvas)
+// How many different white stones there are: clamshells, each with growth
+// lines of its own.
+constexpr int SHELLS = int(Sprite::WhiteStone8) - int(Sprite::WhiteStone) + 1;
+
+void WhiteStone(Canvas& canvas, int shell)
 {
   Shadow(canvas);
-  canvas.layer([](float x, float y) {
-    // Shell: lit from the top left, a little darker towards its rim.
-    const float r     = Length(x, y);
-    const float light = Clamp01((x + y) * 0.35f + 0.5f);
-    Rgba c = Mix(Rgb(252, 252, 247), Rgb(196, 196, 188), light);
-    c = Mix(c, Rgb(150, 150, 142), 0.5f * SmoothStep(0.72f * STONE_R, STONE_R, r));
-    c.a = Cover(r - STONE_R);
+
+  // The shell the stone was cut from grew in rings round its hinge, well off
+  // the stone: so the lines run across it in gentle arcs, one way on this
+  // stone and another on the next, closer here and wider there.
+  const float angle   = 6.2832f * (float(shell) + 0.5f * Hash(shell * 17 + 1)) / float(SHELLS);
+  const float hinge   = 1.9f + 0.6f * Hash(shell * 17 + 2);
+  const float hx      = hinge * std::cos(angle), hy = hinge * std::sin(angle);
+  const float lines   = 6.5f + 1.0f * Hash(shell * 17 + 3);  // lines per unit of radius
+  const float contrast = 0.8f + 0.2f * Hash(shell * 17 + 4);
+  const int   seed    = 100 + shell * 13;
+
+  canvas.layer([=](float x, float y) {
+    const float d = Length(x - hx, y - hy);
+    // Growth that sped up and slowed down: the lines' spacing wanders.
+    const float ring = d * lines + 1.6f * Noise(d * 2.0f, seed) + 0.5f * Noise(d * 7.0f, seed + 1);
+    // Grey growth lines, some stronger than others; finer ones between them;
+    // and a faint broader banding under it all.
+    const float line  = std::pow(0.5f + 0.5f * std::cos(6.2832f * ring), 3.0f);
+    const float fine  = std::pow(0.5f + 0.5f * std::cos(6.2832f * ring * 2.7f + 1.3f), 6.0f);
+    const float bands = 0.5f + 0.5f * Noise(ring * 0.4f, seed + 2);
+    const float grain = contrast * (0.75f * line * (0.3f + 0.7f * bands) + 0.25f * fine + 0.15f * bands);
+
+    Rgba shell = Mix(Rgb(250, 249, 244), Rgb(196, 194, 184), Clamp01(grain));
+    const Lit lit = Light(x, y);
+    // Lit, and shaded a little toward grey away from the light.
+    Rgba c = Mix(Mix(shell, Rgb(160, 160, 156), 0.4f), shell, std::pow(lit.diffuse, 0.7f));
+    c = Mix(c, Rgb(255, 255, 255), 0.7f * lit.specular);
+    // A darker rim, which a real stone's bevel has, and which keeps it apart
+    // from a neighbour and the wood.
+    c = Mix(c, Rgb(128, 128, 122), 0.45f * SmoothStep(0.86f * STONE_R, STONE_R, Length(x, y)));
+    c.a = Cover(Length(x, y) - STONE_R);
     return c;
   });
 }
@@ -229,9 +319,16 @@ void Paint(Sprite sprite, ::Image& sheet)
     c.copyTo(sheet, int(sprite));
     break;
   }
-  case Sprite::WhiteStone: {
+  case Sprite::WhiteStone:
+  case Sprite::WhiteStone2:
+  case Sprite::WhiteStone3:
+  case Sprite::WhiteStone4:
+  case Sprite::WhiteStone5:
+  case Sprite::WhiteStone6:
+  case Sprite::WhiteStone7:
+  case Sprite::WhiteStone8: {
     Canvas c(Rgb(230, 230, 225));
-    WhiteStone(c);
+    WhiteStone(c, int(sprite) - int(Sprite::WhiteStone));
     c.copyTo(sheet, int(sprite));
     break;
   }
@@ -248,13 +345,6 @@ void Paint(Sprite sprite, ::Image& sheet)
     const Shape shapes[] = { TriangleEdges, SquareEdges, CircleEdge, CrossLines };
     Canvas c(color);
     Outline(c, color, shapes[n / 2]);
-    c.copyTo(sheet, int(sprite));
-    break;
-  }
-  case Sprite::LastMove: {
-    const Rgba red = Rgb(232, 64, 44);
-    Canvas c(red);
-    Filled(c, red, [](float x, float y) { return Length(x, y) - 0.26f; });
     c.copyTo(sheet, int(sprite));
     break;
   }

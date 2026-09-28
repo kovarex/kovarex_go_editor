@@ -30,9 +30,10 @@ int FloorDiv(int a, int b)
   return a >= 0 ? a / b : -((-a + b - 1) / b);
 }
 
-Sprite StoneSprite(Stone s)
+// A white stone is one of the shells, the one this point always has.
+Sprite StoneSprite(Stone s, Point p)
 {
-  return s == Stone::Black ? Sprite::BlackStone : Sprite::WhiteStone;
+  return s == Stone::Black ? Sprite::BlackStone : WhiteShell(unsigned(p.x) * 73856093u ^ unsigned(p.y) * 19349663u);
 }
 
 // A mark in the colour that shows on what is under it.
@@ -508,11 +509,11 @@ void BoardView::refresh()
       std::optional<Sprite> stoneSprite;
       double                stoneOpacity = 1.0;
       if (stone != Stone::None) {
-        stoneSprite  = StoneSprite(stone);
+        stoneSprite  = StoneSprite(stone, p);
         stoneOpacity = dim[i] ? DIMMED : 1.0;
         if (this->dragging && p == this->pressPoint && this->dragTarget.valid() && this->dragTarget != p) stoneOpacity = LIFTED;
       } else if (ghosts[i]) {
-        stoneSprite  = StoneSprite(*ghosts[i]);
+        stoneSprite  = StoneSprite(*ghosts[i], p);
         stoneOpacity = ghostOpacity[i];
       }
       w.setStone(stoneSprite, stoneOpacity, this->sprites);
@@ -531,7 +532,7 @@ void BoardView::refresh()
       const agui::ButtonStyle* look = (!label.empty() && stone == Stone::None) ? &this->theme.pointBlank : &this->theme.pointPlain;
       if (w.style.getParent() != look) w.style.setParent(look);
 
-      // The mark, or the last-move dot, or the mark the tool would put down.
+      // The mark, or the last move's ring, or the mark the tool would put down.
       std::optional<Sprite> markSprite;
       double                markOpacity = 1.0;
       if (marks[i]) {
@@ -539,7 +540,8 @@ void BoardView::refresh()
       } else if (p == this->lineStart) {
         markSprite = Sprite::Selected;
       } else if (p == last && label.empty()) {
-        markSprite = Sprite::LastMove;
+        // A ring on the stone, as CGoban has it: dark on white, light on black.
+        markSprite = MarkSprite(Mark::Circle, stone);
       } else if (p == this->hover && toolMark && *toolMark != Mark::Dim && label.empty()) {
         markSprite  = MarkSprite(*toolMark, stone);
         markOpacity = GHOST;
