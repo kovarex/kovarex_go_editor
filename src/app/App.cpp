@@ -161,9 +161,13 @@ void App::handle(Command command)
   case Command::AiSensei:
     this->sendToAiSensei();
     break;
-  case Command::Online:
-    pages.online.refresh();
-    pages.open(ui::Pages::Page::Online);
+  case Command::Host:
+    pages.host.refresh();
+    pages.open(ui::Pages::Page::Host);
+    break;
+  case Command::Join:
+    pages.join.refresh();
+    pages.open(ui::Pages::Page::Join);
     break;
   case Command::About:
     pages.open(ui::Pages::Page::About);
@@ -471,10 +475,12 @@ void App::updateSharing()
   // Drawn here: to the others. (Without a session the lines are only here.)
   for (const net::StrokePart& part : editor.takeStrokes()) this->sharing.sendStroke(part);
   if (this->game) this->sharing.update(*this->game);
-  // In a session now -- hosting, or welcomed into one: the Online page has
-  // done its job, and goes.
-  const bool joined = this->sharing.joined();
-  if (joined && !this->wasJoined && this->gui.pages().current() == ui::Pages::Page::Online) this->gui.pages().close();
+  // In a session now -- hosting, or welcomed into one: the Host or Join page
+  // has done its job, and goes.
+  const bool            joined = this->sharing.joined();
+  const ui::Pages::Page page  = this->gui.pages().current();
+  const bool            online = page == ui::Pages::Page::Host || page == ui::Pages::Page::Join;
+  if (joined && !this->wasJoined && online) this->gui.pages().close();
   this->wasJoined = joined;
   for (const net::Session::Event& e : this->sharing.takeStrokes()) {
     editor.addStroke(e.author, this->sharing.colourOf(e.author), e.stroke);
@@ -493,7 +499,7 @@ void App::updateSharing()
   editor.showPresence(presence);
 
   // The Online page, while it is up, shows the session as it is.
-  if (this->gui.pages().current() == ui::Pages::Page::Online) {
+  if (online) {
     ui::OnlinePage::Status status;
     if (const net::Session* s = this->sharing.current()) {
       status.active = true;
@@ -521,7 +527,7 @@ void App::updateSharing()
         status.what = "Connecting to " + this->sharing.address() + "...";
       }
     }
-    this->gui.pages().online.show(status);
+    (page == ui::Pages::Page::Host ? this->gui.pages().host : this->gui.pages().join).show(status);
   }
 }
 

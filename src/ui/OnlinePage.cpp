@@ -58,11 +58,11 @@ agui::TextField& Field(int width = FIELD_W)
 
 }  // namespace
 
-OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(Request, size_t)> onRequest,
+OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, Mode mode, std::function<void(Request, size_t)> onRequest,
                        std::function<void()> onBack)
     : theme(theme)
     , setup(setup)
-    , window(agui::GuiDirection::Vertical, "Online")
+    , window(agui::GuiDirection::Vertical, mode == Mode::Host ? "Host" : "Join")
     , onRequest(std::move(onRequest))
 {
   this->window.setDragTarget(&this->window);
@@ -85,55 +85,76 @@ OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(Requ
     return label;
   };
 
-  // The people met before: one click to meet again.
-  this->contactSection = &section("People you met");
-  this->contactList    = &column(4);
-  *this->contactSection << *this->contactList
-                        << note("Connect to join them, no code needed: in their session if they are in one, or they "
-                                "come to you when they connect to you. Nobody else can come in that way.");
-  this->contactSection->setVisible(false);
-  content << *this->contactSection;
-
-  // A session on the relay: a new one, or one someone invited this editor to.
-  this->roomSection = &section("New people");
-  agui::HorizontalFlow& openRow = row(8);
-  openRow.style.setHorizontallyStretchable(true);
-  openRow << agui::label("A new session, with the game here") << agui::pusher
+  if (mode == Mode::Host) {
+    // A session on the relay, which anyone can reach.
+    agui::Frame& onRelay = section("On the relay");
+    agui::HorizontalFlow& start = row(8);
+    start.style.setHorizontallyStretchable(true);
+    start << agui::label("A new session, with the game here") << agui::pusher
           << agui::button("Start", &this->window, ask(Request::OpenRoom));
-  this->code = &Field(120);
-  this->code->setToolTip("The invite code someone gave you.");
-  this->code->onTextEdit(this, [this] { this->setup.room = this->code->getText(); });
-  agui::HorizontalFlow& joinRow = namedRow("Invite code", *this->code);
-  joinRow << agui::pusher << agui::button("Join", &this->window, ask(Request::JoinRoom));
-  *this->roomSection << openRow << joinRow
-                     << note("For someone you haven't met yet: start a session and give them its invite code. Joining "
-                             "someone's session brings its game here, in place of this one.");
-  content << *this->roomSection;
+    onRelay << start
+          << note("Someone new joins with its invite code, which shows once it has started. The people you met can "
+                  "connect to you without one.");
+    content << onRelay;
+    this->sections.push_back(&onRelay);
 
-  // Everything else: another relay, or none -- this editor hosting, or
-  // joining one that does, which needs a port let through a router.
-  this->otherSection = &section("Other ways to connect");
+    // This editor hosting, which needs a port let through a router.
+    agui::Frame& direct = section("Without the relay");
+    this->port = &Field(80);
+    this->port->setToolTip("The port others connect to.");
+    this->port->onTextEdit(this, [this] {
+      const int value = std::atoi(this->port->getText().c_str());
+      if (value > 0 && value < 65536) this->setup.port = value;
+    });
+    agui::HorizontalFlow& hostRow = namedRow("Host on port", *this->port);
+    hostRow << agui::pusher << agui::button("Host", &this->window, ask(Request::Host));
+    direct << hostRow
+           << note("The others connect to this computer's address, which shows once hosting starts. From outside "
+                   "your network, your router has to let the port through.");
+    content << direct;
+    this->sections.push_back(&direct);
+  } else {
+    // The people met before: one click to meet again.
+    this->contactSection = &section("People you met");
+    this->contactList    = &column(4);
+    *this->contactSection << *this->contactList
+                          << note("Connect to join them, no code needed: in their session if they are in one, or "
+                                  "they come to you when they connect to you. Nobody else can come in that way.");
+    this->contactSection->setVisible(false);
+    content << *this->contactSection;
+
+    // A session someone invited this editor to.
+    agui::Frame& invited = section("Invited");
+    this->code = &Field(120);
+    this->code->setToolTip("The invite code someone gave you.");
+    this->code->onTextEdit(this, [this] { this->setup.room = this->code->getText(); });
+    agui::HorizontalFlow& joinRow = namedRow("Invite code", *this->code);
+    joinRow << agui::pusher << agui::button("Join", &this->window, ask(Request::JoinRoom));
+    invited << joinRow << note("Joining brings the session's game here, in place of this one.");
+    content << invited;
+    this->sections.push_back(&invited);
+
+    // An editor that hosts, without the relay.
+    agui::Frame& direct = section("Without the relay");
+    this->address = &Field(180);
+    this->address->setToolTip("The address of an editor that hosts, as its player tells you -- with the port after a "
+                              "colon if it isn't the usual one.");
+    this->address->onTextEdit(this, [this] { this->setup.address = this->address->getText(); });
+    agui::HorizontalFlow& directRow = namedRow("Editor's address", *this->address);
+    directRow << agui::pusher << agui::button("Join", &this->window, ask(Request::JoinDirect));
+    direct << directRow;
+    content << direct;
+    this->sections.push_back(&direct);
+  }
+
+  // The relay's own address, seldom changed.
+  agui::Frame& server = section("Relay");
   this->relay = &Field();
-  this->relay->setToolTip(std::string("The relay the rooms are on: ") + net::DEFAULT_RELAY + " unless you run your own.");
+  this->relay->setToolTip(std::string("The relay the sessions are on: ") + net::DEFAULT_RELAY + " unless you run your own.");
   this->relay->onTextEdit(this, [this] { this->setup.relay = this->relay->getText(); });
-  this->port = &Field(80);
-  this->port->setToolTip("The port others connect to, when this editor hosts.");
-  this->port->onTextEdit(this, [this] {
-    const int value = std::atoi(this->port->getText().c_str());
-    if (value > 0 && value < 65536) this->setup.port = value;
-  });
-  agui::HorizontalFlow& hostRow = namedRow("Host on port", *this->port);
-  hostRow << agui::pusher << agui::button("Host", &this->window, ask(Request::Host));
-  this->address = &Field(180);
-  this->address->setToolTip("The address of an editor that hosts, as its player tells you -- with the port after a "
-                            "colon if it isn't the usual one.");
-  this->address->onTextEdit(this, [this] { this->setup.address = this->address->getText(); });
-  agui::HorizontalFlow& directRow = namedRow("Join an editor at", *this->address);
-  directRow << agui::pusher << agui::button("Join", &this->window, ask(Request::JoinDirect));
-  *this->otherSection << namedRow("Relay", *this->relay) << hostRow << directRow
-                      << note("Without the relay, one editor hosts and the others connect to its address. From outside "
-                              "its network, its router has to let the port through.");
-  content << *this->otherSection;
+  server << namedRow("Address", *this->relay);
+  content << server;
+  this->sections.push_back(&server);
 
   // In one.
   this->sessionSection = &section("In a session");
@@ -171,15 +192,16 @@ OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(Requ
 void OnlinePage::refresh()
 {
   this->name->setText(this->setup.name);
-  this->code->setText(this->setup.room);
   this->relay->setText(this->setup.relay);
-  this->port->setText(std::to_string(this->setup.port));
-  this->address->setText(this->setup.address);
+  if (this->code) this->code->setText(this->setup.room);
+  if (this->port) this->port->setText(std::to_string(this->setup.port));
+  if (this->address) this->address->setText(this->setup.address);
   this->listContacts();
 }
 
 bool OnlinePage::listContacts()
 {
+  if (!this->contactList) return false;
   std::vector<std::string> names;
   for (const Contact& c : this->setup.contacts) names.push_back(c.name);
   if (names == this->listed) return false;
@@ -207,9 +229,8 @@ void OnlinePage::show(const Status& status)
   if (status.code != this->shown.code) this->copy->setText(std::string("Copy code"));
   this->shown = status;
 
-  this->contactSection->setVisible(!status.active && !this->setup.contacts.empty());
-  this->roomSection->setVisible(!status.active);
-  this->otherSection->setVisible(!status.active);
+  if (this->contactSection) this->contactSection->setVisible(!status.active && !this->setup.contacts.empty());
+  for (agui::Frame* section : this->sections) section->setVisible(!status.active);
   this->sessionSection->setVisible(status.active);
   this->state->setText(status.what);
   this->codeRow->setVisible(!status.code.empty());

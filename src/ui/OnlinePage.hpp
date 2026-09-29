@@ -1,13 +1,15 @@
-// The Online page: sharing the game with other editors, so that everyone can
-// edit it and everyone sees the same position -- for teaching, mostly.
+
+// The Host and Join pages: sharing the game with other editors, so that
+// everyone can edit it and everyone sees the same position -- for teaching,
+// mostly. One class, in one of two modes.
 //
-// It is made for the relay first. Without a session it offers the people met
-// there before, to join them without a code; starting a new session, whose
-// invite code brings in someone new; and joining one by its invite code.
-// Below, smaller, the other ways: another relay, or no relay at all -- this
-// editor hosting, or joining one that does. With a session, it shows who is
-// in it, each in the colour their drawing on the board comes out in, the
-// invite code to pass on, and a way to leave.
+// Both are made for the relay first. Host starts a session there, whose
+// invite code brings in someone new; or, without the relay, has this editor
+// host on a port. Join offers the people met before, to join them without a
+// code; a session by its invite code; or an editor that hosts, at its
+// address. Both end with the relay's address. With a session, either shows
+// who is in it, each in the colour their drawing on the board comes out in,
+// the invite code to pass on, and a way to leave.
 //
 // It edits the OnlineSetup the settings keep, so the name and the addresses
 // are there next time; the rest is the App's to do.
@@ -50,7 +52,11 @@ public:
     Leave,       // leave the session, or stop hosting it
   };
 
-  OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(Request, size_t index)> onRequest,
+  // Hosting a session, or joining one: two pages of their own, with what
+  // they share -- the name, the relay's address, and the session once in it.
+  enum class Mode { Host, Join };
+
+  OnlinePage(Theme& theme, OnlineSetup& setup, Mode mode, std::function<void(Request, size_t index)> onRequest,
              std::function<void()> onBack);
 
   agui::Window& root() { return this->window; }
@@ -88,8 +94,7 @@ private:
   agui::TextField*    address = nullptr;
   agui::Frame*        contactSection = nullptr;
   agui::VerticalFlow* contactList    = nullptr;
-  agui::Frame*        roomSection    = nullptr;
-  agui::Frame*        otherSection   = nullptr;
+  std::vector<agui::Frame*> sections;  // shown when not in a session
   agui::Frame*        sessionSection = nullptr;
   agui::Label*        state    = nullptr;
   agui::Widget*       codeRow  = nullptr;  // the invite code, and Copy

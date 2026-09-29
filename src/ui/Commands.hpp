@@ -65,7 +65,8 @@ enum class Command {
   Settings,
   Controls,
   About,
-  Online,  // the Online page: sharing the game with other editors
+  Host,    // the Host page: starting a session others join
+  Join,    // the Join page: joining someone's
 
   // Opens the search of the page that is up, or puts the caret back in it.
   FocusSearch,

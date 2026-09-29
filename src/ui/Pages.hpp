@@ -36,7 +36,7 @@ class Theme;
 
 class Pages : public agui::GenericTargetable {
 public:
-  enum class Page { None, NewGame, GameInfo, Settings, Controls, About, Online, Files, Confirm };
+  enum class Page { None, NewGame, GameInfo, Settings, Controls, About, Host, Join, Files, Confirm };
 
   enum class Action {
     None,
@@ -50,7 +50,7 @@ public:
     DiscardSettings,  // Settings' Back: put back what there was when it opened
     SaveControls,     // Controls' Confirm: keep the keys the page changed
     OpenProjectPage,  // About's link: the project's page in the browser
-    Online,           // the Online page asked for onlineRequest(), about contact() for a contact
+    Online,           // the Host or Join page asked for onlineRequest(), about contact() for a contact
     Back,           // a page's Back or Cancel: nothing to do, and nothing waiting on it either
   };
 
@@ -89,7 +89,8 @@ public:
   SettingsPage settings;
   ControlsPage controls;
   AboutPage    about;
-  OnlinePage   online;
+  OnlinePage   host;
+  OnlinePage   join;
   FilePage     files;
   ConfirmPage  confirm;
 
@@ -97,6 +98,7 @@ private:
   agui::Window* window(Page page);
   SearchBar*    search();  // the page's, if it has one
   void          finish(Action action);
+  void          ask(OnlinePage::Request asked, size_t contact);
 
   agui::Gui& gui;
 

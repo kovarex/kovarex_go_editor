@@ -15,13 +15,12 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
                [this] { this->finish(Action::DiscardSettings); })
     , controls(theme, config, [this] { this->finish(Action::SaveControls); }, [this] { this->finish(Action::Back); })
     , about(theme, [this] { this->pending = Action::OpenProjectPage; }, [this] { this->finish(Action::Back); })
-    , online(theme, config.online,
-             [this](OnlinePage::Request request, size_t contact) {
-               this->request       = request;
-               this->chosenContact = contact;
-               this->pending       = Action::Online;
-             },
-             [this] { this->finish(Action::Back); })
+    , host(theme, config.online, OnlinePage::Mode::Host,
+           [this](OnlinePage::Request request, size_t contact) { this->ask(request, contact); },
+           [this] { this->finish(Action::Back); })
+    , join(theme, config.online, OnlinePage::Mode::Join,
+           [this](OnlinePage::Request request, size_t contact) { this->ask(request, contact); },
+           [this] { this->finish(Action::Back); })
     , files(theme,
             [this](const std::filesystem::path& path) {
               this->chosen = path;
@@ -33,7 +32,7 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
 {
   this->dimmer.style.setParent(&theme.dimmer);
   gui.add(&this->dimmer);  // before the pages, so they are not dimmed too
-  for (Page p : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::About, Page::Online, Page::Files, Page::Confirm }) {
+  for (Page p : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::About, Page::Host, Page::Join, Page::Files, Page::Confirm }) {
     gui.add(this->window(p));
   }
   this->open(Page::None);
@@ -41,7 +40,7 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
 
 Pages::~Pages()
 {
-  for (Page p : { Page::Confirm, Page::Files, Page::Online, Page::About, Page::Controls, Page::Settings, Page::GameInfo, Page::NewGame }) {
+  for (Page p : { Page::Confirm, Page::Files, Page::Join, Page::Host, Page::About, Page::Controls, Page::Settings, Page::GameInfo, Page::NewGame }) {
     this->gui.remove(this->window(p));
   }
   this->gui.remove(&this->dimmer);
@@ -55,7 +54,8 @@ agui::Window* Pages::window(Page p)
   case Page::Settings: return &this->settings.root();
   case Page::Controls: return &this->controls.root();
   case Page::About:    return &this->about.root();
-  case Page::Online:   return &this->online.root();
+  case Page::Host:     return &this->host.root();
+  case Page::Join:     return &this->join.root();
   case Page::Files:    return &this->files.root();
   case Page::Confirm:  return &this->confirm.root();
   case Page::None:     break;
@@ -68,11 +68,18 @@ void Pages::open(Page p)
   this->page     = p;
   this->recentre = true;
   this->dimmer.setVisible(p != Page::None);
-  for (Page each : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::About, Page::Online, Page::Files, Page::Confirm }) {
+  for (Page each : { Page::NewGame, Page::GameInfo, Page::Settings, Page::Controls, Page::About, Page::Host, Page::Join, Page::Files, Page::Confirm }) {
     this->window(each)->setVisible(each == p);
   }
   // Whatever had the keyboard is behind the sheet now.
   this->gui.clearFocus();
+}
+
+void Pages::ask(OnlinePage::Request asked, size_t contact)
+{
+  this->request       = asked;
+  this->chosenContact = contact;
+  this->pending       = Action::Online;
 }
 
 void Pages::finish(Action action)

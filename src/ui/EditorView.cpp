@@ -189,7 +189,8 @@ agui::Widget& EditorView::buildTopBar()
   this->title->style.setLeftPadding(16);
   bar << *this->title;
   bar << agui::pusher;
-  bar << this->commandButton("Online", Command::Online, "Share this game with other editors: all of you edit it, and see the same position", 80);
+  bar << this->commandButton("Host", Command::Host, "Share this game with other editors: all of you edit it, and see the same position", 70);
+  bar << this->commandButton("Join", Command::Join, "Join another editor's game: all of you edit it, and see the same position", 70);
   bar << this->commandButton("Controls", Command::Controls, nullptr, 90);
   bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
   bar << this->commandButton("About", Command::About, nullptr, 70);
