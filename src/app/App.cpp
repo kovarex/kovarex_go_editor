@@ -472,7 +472,7 @@ void App::updateSharing()
   ui::EditorView::Presence presence;
   if (const net::Session* s = this->sharing.current()) {
     using Mode      = ui::EditorView::Presence::Mode;
-    presence.mode   = s->isHost() ? Mode::Hosting : s->isJoined() ? Mode::Joined : Mode::Connecting;
+    presence.mode   = s->isHost() || this->sharing.started() ? Mode::Hosting : s->isJoined() ? Mode::Joined : Mode::Connecting;
     presence.people = s->participants();
     presence.self   = s->self();
   }

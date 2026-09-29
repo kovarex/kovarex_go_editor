@@ -26,6 +26,13 @@ public:
   bool active() const { return this->session != nullptr; }
   bool joined() const { return this->session && this->session->isJoined(); }
   bool hosting() const { return this->session && this->session->isHost(); }
+  // Whether this editor started the session it is in on the relay (joined
+  // with no code, so the relay opened a new room): its host, as far as the
+  // player is concerned.
+  bool started() const
+  {
+    return this->session && this->session->isJoined() && !this->session->room().empty() && this->joinedRoom.empty();
+  }
   const net::Session* current() const { return this->session.get(); }
   // Where others can reach this editor while it hosts: looked up once, as
   // hosting starts.
@@ -97,7 +104,7 @@ private:
   bool                  changedContacts = false;
   std::string           relay;   // the address joined, which is a relay if the room has a code
   std::vector<uint32_t> paired;  // participants already paired with, this session
-  std::string           joinedName, joinedIdentity;  // as joined with, to join again
+  std::string           joinedName, joinedIdentity, joinedRoom;  // as joined with, to join again
   bool                  announce = false;  // the people met should be told where this editor is
   bool                  rejoin   = false;  // the relay said to join again
 };

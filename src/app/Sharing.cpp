@@ -20,6 +20,7 @@ void Sharing::join(const std::string& address, const std::string& room, const st
   this->relay          = address;
   this->joinedName     = name;
   this->joinedIdentity = identity;
+  this->joinedRoom     = room;
 }
 
 void Sharing::leave()
