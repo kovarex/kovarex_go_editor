@@ -7,6 +7,8 @@
 #include <ui/Theme.hpp>
 
 #include <Agui/Gui.hpp>
+#include <Agui/TopContainer.hpp>
+#include <Agui/Widget/ToolTip.hpp>
 #include <rlgl.h>
 
 namespace ui {
@@ -87,6 +89,13 @@ void GuiLayer::update(float dt)
   this->gui->setInstantTooltip(shift);
   this->editorView->setShift(shift);
   this->gui->logic(true);
+
+  // A tooltip is a window like any other, and would take the mouse when it
+  // moved onto one -- dropping the tooltip, which then comes back, over and
+  // over. The mouse goes through them to what is under them.
+  for (agui::Widget* child : this->gui->getTop()->getChildren()) {
+    if (dynamic_cast<agui::ToolTip*>(child) && !child->isIgnoredByInteraction()) child->setIgnoredByInteraction(true);
+  }
 
   // The editor is still there behind a page, dimmed, but nothing on it can be
   // clicked.
