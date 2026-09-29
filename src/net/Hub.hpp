@@ -31,13 +31,14 @@ public:
 
   // A member in the same program, told what happens through `deliver`. Returns
   // its id, which say() takes.
-  uint32_t addLocal(std::string name, std::function<void(std::string_view message)> deliver);
+  uint32_t addLocal(std::string name, std::string identity, std::function<void(std::string_view message)> deliver);
   // What the local member says, as it would say it over a connection.
   void say(uint32_t member, std::string_view message);
 
-  // Someone connected, whose Hello asked for this room with this name. They
-  // are welcomed with the game as it is, and everyone told they are here.
-  void admit(std::unique_ptr<WebSocket> connection, std::string name);
+  // Someone connected, whose Hello asked for this room with this name and
+  // identity. They are welcomed with the game as it is, and everyone told
+  // they are here.
+  void admit(std::unique_ptr<WebSocket> connection, std::string name, std::string identity);
 
   // Reads what the connected members have said, and passes it on. True if
   // anything happened.
@@ -54,7 +55,8 @@ private:
     std::function<void(std::string_view)>        deliver;
   };
 
-  uint32_t add(std::string name, std::unique_ptr<WebSocket> connection, std::function<void(std::string_view)> deliver);
+  uint32_t add(std::string name, std::string identity, std::unique_ptr<WebSocket> connection,
+               std::function<void(std::string_view)> deliver);
   void     route(uint32_t from, std::string_view message);
   void     send(Member& to, std::string_view message);
   void     broadcast(std::string_view message, uint32_t except = 0);

@@ -10,15 +10,29 @@
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <vector>
+
+// Someone met in a room on a relay, remembered so as to meet again: the two
+// editors keep a room key of their own there (see net::Type::Pair), and
+// whichever of them comes to it first opens it.
+struct Contact {
+  std::string identity;  // theirs: how they are known when met again
+  std::string name;      // as they last called themselves
+  std::string relay;     // the relay's address
+  std::string key;       // the pair's room on it
+};
 
 // What the Online page was last set to: the name to go by in a shared game,
 // the port to host on, and where to join -- an address, and a room code when
-// that is a relay.
+// that is a relay. And the people met there before.
 struct OnlineSetup {
   std::string name;
   int         port = 27272;
   std::string address;
   std::string room;
+  // This editor's identity: made up the first time, then kept.
+  std::string          identity;
+  std::vector<Contact> contacts;
 };
 
 struct Settings {

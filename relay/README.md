@@ -12,8 +12,15 @@ In the editor (Online page), the relay's address goes in *Address*, as
   shows its code, such as `WJA8YC`;
 - the others join with the same address and that code.
 
+Two people who met in a room are remembered by each other's editor, with a
+long room code of their own (20 letters, too many to guess). Next time, each
+picks the other under *People you met* on the Online page, and they meet in
+that room: the relay makes it for whichever of them comes first. It keeps
+no list of people or codes: those are only in the two editors' settings.
+
 A room nobody is in is kept for 30 minutes, game and all, so whoever lost
-their connection can come back to it.
+their connection can come back to it. An address that tries ten wrong codes
+is turned away for ten minutes.
 
 ## Building and running
 

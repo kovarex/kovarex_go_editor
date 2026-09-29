@@ -5,8 +5,10 @@
 // It keeps rooms, each a net::Hub, as an editor hosting a session does, but
 // with every member connected. Joining with no room code opens a new room, and
 // the Welcome tells its code, to be given to the others; joining with a code
-// goes into that room. A room left empty is kept a while, game and all, so
-// whoever lost their connection can come back to it.
+// goes into that room. Two people who have met keep a longer code of their own
+// (see net::Type::Pair), and that room is made by whichever of them comes to
+// it first. A room left empty is kept a while, game and all, so whoever lost
+// their connection can come back to it.
 //
 //   go_relay [port]      (27272 by default)
 //
@@ -25,7 +27,6 @@
 #include <ctime>
 #include <map>
 #include <memory>
-#include <random>
 #include <string>
 #include <thread>
 #include <vector>
@@ -47,10 +48,10 @@ constexpr auto EMPTY_ROOM_TIME = std::chrono::minutes(30);
 constexpr auto BUSY_SLEEP = std::chrono::milliseconds(2);
 constexpr auto IDLE_SLEEP = std::chrono::milliseconds(40);
 constexpr auto BUSY_TIME  = std::chrono::seconds(2);
-
-// Room codes: easy to read out and type -- no 0/O or 1/I.
-constexpr char   CODE_LETTERS[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-constexpr size_t CODE_LENGTH    = 6;
+// Wrong room codes one address may try before it is turned away for a while:
+// codes are too many to guess, and more so at this pace.
+constexpr int  MAX_MISSES  = 10;
+constexpr auto MISS_WINDOW = std::chrono::minutes(10);
 
 void Log(const std::string& text)
 {
@@ -101,13 +102,14 @@ public:
         if (in.type() != net::Type::Hello) continue;
         const uint32_t    version = in.u32();
         const std::string name    = in.str();
-        const std::string code    = Normalized(in.str());
+        const std::string code     = Normalized(in.str());
+        const std::string identity = in.str();
         if (!in.ok()) {
           w.connection->close();
         } else if (version != net::PROTOCOL_VERSION) {
           this->refuse(w, "The relay runs another version of the editor's sharing: update the editor.");
         } else {
-          this->enter(w, name, code);
+          this->enter(w, name, identity, code);
         }
         done = true;
         break;
@@ -127,6 +129,10 @@ public:
         continue;
       }
       ++it;
+    }
+    // Addresses that stopped missing are forgotten, now and then.
+    if (this->misses.size() > 1000) {
+      std::erase_if(this->misses, [now](const auto& m) { return now - m.second.since > MISS_WINDOW; });
     }
     return busy;
   }
@@ -149,37 +155,60 @@ private:
     w.connection->close();
   }
 
-  void enter(Waiting& w, const std::string& name, std::string code)
+  void enter(Waiting& w, const std::string& name, const std::string& identity, std::string code)
   {
-    if (code.empty()) {
+    // Someone trying code after code is guessing: turned away for a while.
+    const std::string       address = w.peer.substr(0, w.peer.rfind(':'));
+    const Clock::time_point now     = Clock::now();
+    Misses&                 misses  = this->misses[address];
+    if (now - misses.since > MISS_WINDOW) misses = { 0, now };
+    if (misses.count >= MAX_MISSES) {
+      this->refuse(w, "Too many wrong room codes. Try again in a few minutes.");
+      return;
+    }
+
+    const bool pair = code.size() == net::PAIR_KEY_LENGTH;
+    if (code.empty() || (pair && !this->rooms.contains(code))) {
       if (this->rooms.size() >= MAX_ROOMS) {
         this->refuse(w, "The relay is full. Try again later.");
         return;
       }
-      do {
-        code.clear();
-        for (size_t i = 0; i < CODE_LENGTH; ++i) code += CODE_LETTERS[this->random() % (sizeof(CODE_LETTERS) - 1)];
-      } while (this->rooms.contains(code));
+      if (code.empty()) {
+        do code = net::RandomCode(net::ROOM_CODE_LENGTH);
+        while (this->rooms.contains(code));
+      }
       this->rooms[code].hub = std::make_unique<net::Hub>(code);
-      Log("room " + code + " opened by " + w.peer);
+      Log("room " + Shown(code) + " opened by " + w.peer);
     }
     const auto it = this->rooms.find(code);
     if (it == this->rooms.end()) {
+      ++misses.count;
       this->refuse(w, "There is no room " + code + " on the relay.");
       return;
     }
     if (it->second.hub->size() >= MAX_MEMBERS) {
-      this->refuse(w, "Room " + code + " is full.");
+      this->refuse(w, "The room is full.");
       return;
     }
-    it->second.hub->admit(std::move(w.connection), name);
-    Log("room " + code + ": " + w.peer + " came in, " + std::to_string(it->second.hub->size()) + " there");
+    it->second.hub->admit(std::move(w.connection), name, identity);
+    Log("room " + Shown(code) + ": " + w.peer + " came in, " + std::to_string(it->second.hub->size()) + " there");
   }
+
+  // A pair's code is theirs alone, and stays out of the log.
+  static std::string Shown(const std::string& code)
+  {
+    return code.size() == net::PAIR_KEY_LENGTH ? code.substr(0, 4) + "... (a pair's)" : code;
+  }
+
+  struct Misses {
+    int               count = 0;
+    Clock::time_point since = Clock::now();
+  };
 
   std::unique_ptr<net::Listener> listener;
   std::vector<Waiting>           waiting;
   std::map<std::string, Room>    rooms;
-  std::mt19937_64                random{ std::random_device{}() };
+  std::map<std::string, Misses>  misses;  // by address
 };
 
 }  // namespace

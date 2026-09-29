@@ -15,8 +15,11 @@ Pages::Pages(agui::Gui& gui, Theme& theme, Settings& config)
                [this] { this->finish(Action::DiscardSettings); })
     , controls(theme, config, [this] { this->finish(Action::SaveControls); }, [this] { this->finish(Action::Back); })
     , about(theme, [this] { this->pending = Action::OpenProjectPage; }, [this] { this->finish(Action::Back); })
-    , online(theme, config.online, [this] { this->pending = Action::HostSession; }, [this] { this->pending = Action::JoinSession; },
-             [this] { this->pending = Action::LeaveSession; }, [this] { this->finish(Action::Back); })
+    , online(
+        theme, config.online, [this](size_t i) { this->chosenContact = i; this->pending = Action::ConnectContact; },
+        [this](size_t i) { this->chosenContact = i; this->pending = Action::ForgetContact; },
+        [this] { this->pending = Action::HostSession; }, [this] { this->pending = Action::JoinSession; },
+        [this] { this->pending = Action::LeaveSession; }, [this] { this->finish(Action::Back); })
     , files(theme,
             [this](const std::filesystem::path& path) {
               this->chosen = path;

@@ -10,11 +10,13 @@
 
 #pragma once
 
+#include <app/Settings.hpp>
 #include <net/Session.hpp>
 
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 class Game;
@@ -28,10 +30,12 @@ public:
   // Where others can reach this editor while it hosts: looked up once, as
   // hosting starts.
   const std::vector<std::string>& addresses() const { return this->reachable; }
+  // The address joined.
+  const std::string& address() const { return this->relay; }
 
   // False with the reason in `error` if the port can't be had.
-  bool host(int port, const std::string& name, std::string* error);
-  void join(const std::string& address, const std::string& room, const std::string& name);
+  bool host(int port, const std::string& name, const std::string& identity, std::string* error);
+  void join(const std::string& address, const std::string& room, const std::string& name, const std::string& identity);
   void leave();
 
   // Once a frame, after the editor has done this frame's edits: sends them,
@@ -49,11 +53,21 @@ public:
   uint8_t colourOf(uint32_t id) const;
   uint8_t ownColour() const;
 
+  // The people met on a relay, kept in `list`: added to when someone new is
+  // met, and their names kept up to date. contactsChanged() says, once, that
+  // the list should be saved.
+  void setContacts(std::vector<Contact>* list) { this->contacts = list; }
+  bool contactsChanged() { return std::exchange(this->changedContacts, false); }
+  // The contact whose own room this session is in, if it is one.
+  const Contact* pairRoom() const;
+
 private:
   void publish(Game& game);
   void receive(Game& game);
   void apply(Game& game, const net::GameState& state);
   void remember(const Game& game);
+  void pairUp();
+  void keep(const net::Participant& who, const std::string& key);
 
   std::unique_ptr<net::Session> session;
   bool                          welcomed = false;  // the Welcome read: in, with the session's game
@@ -76,4 +90,9 @@ private:
   std::vector<net::Session::Event>  strokes;
   std::vector<net::Participant>     known;  // who was here, to say who came and went
   std::vector<std::string>          reachable;
+
+  std::vector<Contact>* contacts        = nullptr;
+  bool                  changedContacts = false;
+  std::string           relay;   // the address joined, which is a relay if the room has a code
+  std::vector<uint32_t> paired;  // participants already paired with, this session
 };

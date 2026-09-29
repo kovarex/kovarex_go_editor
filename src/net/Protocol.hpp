@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,26 +20,49 @@ namespace net {
 
 // Bumped whenever a message changes, so an old editor is told, rather than
 // misreading a new one.
-constexpr uint32_t PROTOCOL_VERSION = 1;
+constexpr uint32_t PROTOCOL_VERSION = 2;
 
 // The port a session listens on unless told otherwise: an editor hosting one,
 // or the relay.
 constexpr int DEFAULT_PORT = 27272;
 
+// Room codes on the relay, in letters easy to read out and type -- no 0/O or
+// 1/I. A code ROOM_CODE_LENGTH long is a room someone opened, which has to
+// exist to be joined. One PAIR_KEY_LENGTH long is two people's own room (see
+// Type::Pair), made by whichever of them comes first: too long to guess, so
+// only the two of them can come in.
+constexpr std::string_view CODE_LETTERS     = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+constexpr size_t           ROOM_CODE_LENGTH = 6;
+constexpr size_t           PAIR_KEY_LENGTH  = 20;
+
+// A code of `length` random CODE_LETTERS.
+inline std::string RandomCode(size_t length)
+{
+  static std::mt19937_64 random{ std::random_device{}() };
+  std::string code;
+  for (size_t i = 0; i < length; ++i) code += CODE_LETTERS[random() % CODE_LETTERS.size()];
+  return code;
+}
+
 enum class Type : uint8_t {
-  Hello = 1,     // client -> hub: who I am, and the room I want
+  Hello = 1,     // client -> hub: who I am, the room I want, and my identity
   Welcome,       // hub -> client: your id, the room, who is here, the game
   Participants,  // hub -> all: who is here now
   State,         // any -> hub -> all: the game and the position, after an edit
   Navigate,      // any -> hub -> all: the position only
   Stroke,        // any -> hub -> the others: points drawn on the board
   Refused,       // hub -> client: why you can't join
+  Pair,          // client -> hub -> one other: the key of a room for the two of them
 };
 
 struct Participant {
   uint32_t    id = 0;
   std::string name;
   uint8_t     colour = 0;  // an index into the palette every editor has
+  // A random name each editor makes up for itself once, and keeps: how
+  // editors know someone they met before. Anyone can claim anyone's, so it
+  // recognises people but proves nothing -- a pair's room key (see Pair) does.
+  std::string identity;
 
   bool operator==(const Participant&) const = default;
 };
@@ -85,7 +109,7 @@ public:
     for (int i : p) this->u32(uint32_t(i));
     return *this;
   }
-  Writer& participant(const Participant& p) { return this->u32(p.id).str(p.name).u8(p.colour); }
+  Writer& participant(const Participant& p) { return this->u32(p.id).str(p.name).u8(p.colour).str(p.identity); }
   Writer& state(const GameState& s) { return this->str(s.sgf).path(s.path); }
   const std::string& bytes() const { return this->out; }
 
@@ -138,6 +162,7 @@ public:
     p.id     = this->u32();
     p.name   = this->str();
     p.colour = this->u8();
+    p.identity = this->str();
     return p;
   }
   GameState state()

@@ -46,7 +46,7 @@ bool ParseAddress(std::string address, std::string& host, int& port, std::string
 
 }  // namespace
 
-std::unique_ptr<Session> Session::host(int port, std::string name, std::string* error)
+std::unique_ptr<Session> Session::host(int port, std::string name, std::string identity, std::string* error)
 {
   std::unique_ptr<Listener> listener = Listener::open(port, error);
   if (!listener) return nullptr;
@@ -55,11 +55,13 @@ std::unique_ptr<Session> Session::host(int port, std::string name, std::string* 
   session->listenPort = port;
   session->hub        = std::make_unique<Hub>("");
   Session* self       = session.get();
-  session->selfId     = session->hub->addLocal(std::move(name), [self](std::string_view message) { self->handle(message); });
+  session->selfId     = session->hub->addLocal(std::move(name), std::move(identity),
+                                               [self](std::string_view message) { self->handle(message); });
   return session;
 }
 
-std::unique_ptr<Session> Session::join(const std::string& address, const std::string& room, std::string name)
+std::unique_ptr<Session> Session::join(const std::string& address, const std::string& room, std::string name,
+                                       std::string identity)
 {
   std::unique_ptr<Session> session(new Session());
   int port = 0;
@@ -67,8 +69,9 @@ std::unique_ptr<Session> Session::join(const std::string& address, const std::st
     session->end("That isn't an address: " + address);
     return session;
   }
-  session->joinRoom   = room;
-  session->joinName   = std::move(name);
+  session->joinRoom     = room;
+  session->joinName     = std::move(name);
+  session->joinIdentity = std::move(identity);
   session->connecting = std::make_shared<Connecting>();
   std::thread([pending = session->connecting, host = session->joinHost, port] {
     std::string             error;
@@ -106,11 +109,12 @@ void Session::update()
         const uint32_t    version = in.u32();
         const std::string who     = in.str();
         in.str();  // the room: there is only this one
+        const std::string identity = in.str();
         if (version != PROTOCOL_VERSION) {
           a.connection->send(Writer(Type::Refused).str("This session is run by another version of the editor.").bytes());
           a.connection->close();
         } else {
-          this->hub->admit(std::move(a.connection), who);
+          this->hub->admit(std::move(a.connection), who, identity);
         }
         done = true;
         break;
@@ -139,7 +143,8 @@ void Session::update()
       return;
     }
     this->connection = WebSocket::client(std::move(socket), this->joinHost, this->joinPath);
-    this->connection->send(Writer(Type::Hello).u32(PROTOCOL_VERSION).str(this->joinName).str(this->joinRoom).bytes());
+    this->connection->send(
+      Writer(Type::Hello).u32(PROTOCOL_VERSION).str(this->joinName).str(this->joinRoom).str(this->joinIdentity).bytes());
   }
   if (this->connection) {
     std::vector<std::string> messages;
@@ -197,6 +202,11 @@ void Session::handle(std::string_view message)
     }
     break;
   }
+  case Type::Pair:
+    e.kind    = Event::Kind::Pair;
+    e.author  = in.u32();
+    e.message = in.str();
+    break;
   case Type::Refused:
     this->end(in.str());
     return;
@@ -235,6 +245,11 @@ void Session::sendStroke(const StrokePart& stroke)
   w.u32(stroke.stroke).u8(stroke.finished ? 1 : 0).u32(uint32_t(stroke.points.size()));
   for (const auto& [x, y] : stroke.points) w.f32(x).f32(y);
   this->send(w.bytes());
+}
+
+void Session::sendPair(uint32_t to, const std::string& key)
+{
+  this->send(Writer(Type::Pair).u32(to).str(key).bytes());
 }
 
 void Session::end(std::string why)

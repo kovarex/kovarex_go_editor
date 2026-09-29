@@ -50,6 +50,8 @@ public:
     DiscardSettings,  // Settings' Back: put back what there was when it opened
     SaveControls,     // Controls' Confirm: keep the keys the page changed
     OpenProjectPage,  // About's link: the project's page in the browser
+    ConnectContact,   // Online: meet contact() in the room the two of you have
+    ForgetContact,    // Online: forget contact()
     HostSession,      // Online: host a session, on settings.online.port
     JoinSession,      // Online: join the one at settings.online.address
     LeaveSession,     // Online: leave the session, or stop hosting it
@@ -81,6 +83,8 @@ public:
 
   Action takeAction();
   const std::filesystem::path& chosenFile() const { return this->chosen; }
+  // Which of settings.online.contacts ConnectContact or ForgetContact is about.
+  size_t contact() const { return this->chosenContact; }
 
   NewGamePage  newGame;
   GameInfoPage gameInfo;
@@ -105,6 +109,7 @@ private:
   Action                pending = Action::None;
   Page                  page    = Page::None;
   std::filesystem::path chosen;
+  size_t                chosenContact = 0;
   std::optional<std::string> searchShortcut;  // what the search tooltips were given
   bool recentre = true;
   int  lastScreenWidth = 0, lastScreenHeight = 0;

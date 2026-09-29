@@ -5,18 +5,19 @@
 
 #include <algorithm>
 
-bool Sharing::host(int port, const std::string& name, std::string* error)
+bool Sharing::host(int port, const std::string& name, const std::string& identity, std::string* error)
 {
   this->leave();
-  this->session = net::Session::host(port, name, error);
+  this->session = net::Session::host(port, name, identity, error);
   if (this->session) this->reachable = net::LocalAddresses();
   return this->session != nullptr;
 }
 
-void Sharing::join(const std::string& address, const std::string& room, const std::string& name)
+void Sharing::join(const std::string& address, const std::string& room, const std::string& name, const std::string& identity)
 {
   this->leave();
-  this->session = net::Session::join(address, room, name);
+  this->session = net::Session::join(address, room, name, identity);
+  this->relay   = address;
 }
 
 void Sharing::leave()
@@ -29,6 +30,7 @@ void Sharing::leave()
   this->foreignState      = false;
   this->foreignNavigation = false;
   this->known.clear();
+  this->paired.clear();
   this->strokes.clear();
 }
 
@@ -101,12 +103,15 @@ void Sharing::receive(Game& game)
         if (e.state) {
           this->apply(game, *e.state);
           this->messages.push_back("Joined the session.");
+        } else if (const Contact* with = this->pairRoom()) {
+          this->messages.push_back("In your room with " + with->name + ", waiting for them.");
         } else if (!this->session->room().empty()) {
           this->messages.push_back("Opened room " + this->session->room() + " on the relay: give the others its code.");
         } else {
           this->messages.push_back("Joined the session.");
         }
       }
+      this->pairUp();
       break;
 
     case Kind::State:
@@ -157,8 +162,17 @@ void Sharing::receive(Game& game)
         if (!here) this->messages.push_back(k.name + " left.");
       }
       this->known = now;
+      this->pairUp();
       break;
     }
+
+    case Kind::Pair:
+      // Someone here was here first, and gave the key of a room of the two
+      // of them.
+      for (const net::Participant& p : this->session->participants()) {
+        if (p.id == e.author && !e.message.empty()) this->keep(p, e.message);
+      }
+      break;
 
     case Kind::Ended:
       this->messages.push_back(e.message.empty() ? std::string("The session ended.") : e.message);
@@ -199,4 +213,53 @@ uint8_t Sharing::colourOf(uint32_t id) const
 uint8_t Sharing::ownColour() const
 {
   return this->session ? this->colourOf(this->session->self()) : 0;
+}
+
+const Contact* Sharing::pairRoom() const
+{
+  if (!this->contacts || !this->session || this->session->room().empty()) return nullptr;
+  for (const Contact& c : *this->contacts) {
+    if (c.key == this->session->room() && c.relay == this->relay) return &c;
+  }
+  return nullptr;
+}
+
+void Sharing::pairUp()
+{
+  // Only on a relay, where a room can be had again: an editor hosting has
+  // an address, not rooms.
+  if (!this->contacts || this->session->room().empty()) return;
+  const uint32_t self = this->session->self();
+  for (const net::Participant& p : this->session->participants()) {
+    if (p.id == self || p.identity.empty()) continue;
+    if (std::find(this->paired.begin(), this->paired.end(), p.id) != this->paired.end()) continue;
+    this->paired.push_back(p.id);
+    // Of the two, the one who was here first -- the lower id -- gives the
+    // key: the one they already share, if there is one, or a new one.
+    if (self > p.id) continue;
+    const auto met = std::find_if(this->contacts->begin(), this->contacts->end(), [&](const Contact& c) {
+      return c.identity == p.identity && c.relay == this->relay;
+    });
+    const std::string key = met != this->contacts->end() ? met->key : net::RandomCode(net::PAIR_KEY_LENGTH);
+    this->session->sendPair(p.id, key);
+    this->keep(p, key);
+  }
+}
+
+void Sharing::keep(const net::Participant& who, const std::string& key)
+{
+  if (!this->contacts) return;
+  const auto met = std::find_if(this->contacts->begin(), this->contacts->end(), [&](const Contact& c) {
+    return c.identity == who.identity && c.relay == this->relay;
+  });
+  if (met == this->contacts->end()) {
+    this->contacts->push_back({ who.identity, who.name, this->relay, key });
+    this->messages.push_back(who.name + " is remembered: next time, pick them on the Online page.");
+  } else if (met->name == who.name && met->key == key) {
+    return;
+  } else {
+    met->name = who.name;
+    met->key  = key;
+  }
+  this->changedContacts = true;
 }

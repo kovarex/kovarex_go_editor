@@ -24,11 +24,12 @@ class Session {
 public:
   // Hosts a session on `port`. Null with the reason in `error` if the port
   // can't be had.
-  static std::unique_ptr<Session> host(int port, std::string name, std::string* error);
+  static std::unique_ptr<Session> host(int port, std::string name, std::string identity, std::string* error);
   // Joins the session at `address`: "host" or "host:port" for one hosted
   // directly, or a ws:// address for the relay, with the room's code. What
   // becomes of it arrives as events.
-  static std::unique_ptr<Session> join(const std::string& address, const std::string& room, std::string name);
+  static std::unique_ptr<Session> join(const std::string& address, const std::string& room, std::string name,
+                                       std::string identity);
 
   ~Session();
   Session(const Session&) = delete;
@@ -41,6 +42,7 @@ public:
       Navigate,      // the position only
       Stroke,        // `author` drew
       Participants,  // who is here changed
+      Pair,          // `author` gave this editor a room key for the two of them: `message`
       Ended,         // the session is over; `message` says why
     };
     Kind                     kind = Kind::Ended;
@@ -59,6 +61,8 @@ public:
   void sendState(const GameState& state);
   void sendNavigate(const std::vector<int>& path);
   void sendStroke(const StrokePart& stroke);
+  // To participant `to` only: a room key for the two of them.
+  void sendPair(uint32_t to, const std::string& key);
 
   bool     isHost() const { return this->hub != nullptr; }
   bool     isJoined() const { return this->selfId != 0; }
@@ -88,7 +92,7 @@ private:
   struct Connecting;
   std::shared_ptr<Connecting> connecting;  // shared with the thread doing it
   std::unique_ptr<WebSocket>  connection;
-  std::string                 joinHost, joinPath, joinRoom, joinName;
+  std::string                 joinHost, joinPath, joinRoom, joinName, joinIdentity;
 
   uint32_t                 selfId = 0;
   std::string              roomCode;

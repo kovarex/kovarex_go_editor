@@ -17,13 +17,22 @@ std::string Clean(std::string name)
   return name.empty() ? std::string("Someone") : name;
 }
 
+// Identities are made of code letters; anything else is dropped.
+std::string CleanIdentity(std::string identity)
+{
+  if (identity.size() > 32) identity.resize(32);
+  std::erase_if(identity, [](char c) { return CODE_LETTERS.find(c) == std::string_view::npos; });
+  return identity;
+}
+
 }  // namespace
 
 Hub::Hub(std::string room)
     : name(std::move(room))
 {}
 
-uint32_t Hub::add(std::string who, std::unique_ptr<WebSocket> connection, std::function<void(std::string_view)> deliver)
+uint32_t Hub::add(std::string who, std::string identity, std::unique_ptr<WebSocket> connection,
+                  std::function<void(std::string_view)> deliver)
 {
   // The first colour nobody here has.
   uint8_t colour = 0;
@@ -32,7 +41,7 @@ uint32_t Hub::add(std::string who, std::unique_ptr<WebSocket> connection, std::f
     ++colour;
   }
   Member m;
-  m.who        = { this->nextId++, Clean(std::move(who)), uint8_t(colour % COLOURS) };
+  m.who        = { this->nextId++, Clean(std::move(who)), uint8_t(colour % COLOURS), CleanIdentity(std::move(identity)) };
   m.connection = std::move(connection);
   m.deliver    = std::move(deliver);
   this->members.push_back(std::move(m));
@@ -48,14 +57,14 @@ uint32_t Hub::add(std::string who, std::unique_ptr<WebSocket> connection, std::f
   return added.who.id;
 }
 
-uint32_t Hub::addLocal(std::string who, std::function<void(std::string_view)> deliver)
+uint32_t Hub::addLocal(std::string who, std::string identity, std::function<void(std::string_view)> deliver)
 {
-  return this->add(std::move(who), nullptr, std::move(deliver));
+  return this->add(std::move(who), std::move(identity), nullptr, std::move(deliver));
 }
 
-void Hub::admit(std::unique_ptr<WebSocket> connection, std::string who)
+void Hub::admit(std::unique_ptr<WebSocket> connection, std::string who, std::string identity)
 {
-  this->add(std::move(who), std::move(connection), nullptr);
+  this->add(std::move(who), std::move(identity), std::move(connection), nullptr);
 }
 
 void Hub::say(uint32_t member, std::string_view message)
@@ -117,6 +126,14 @@ void Hub::route(uint32_t from, std::string_view message)
     std::string relayed = Writer(Type::Stroke).u32(from).bytes();
     relayed.append(message.substr(1));
     this->broadcast(relayed, from);
+    break;
+  }
+  case Type::Pair: {
+    // For one member only: a room key two people keep between them.
+    const uint32_t    to  = in.u32();
+    const std::string key = in.str();
+    if (!in.ok() || to == from) return;
+    if (Member* target = this->find(to)) this->send(*target, Writer(Type::Pair).u32(from).str(key).bytes());
     break;
   }
   default:

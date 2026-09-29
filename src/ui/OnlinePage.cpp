@@ -57,11 +57,14 @@ agui::TextField& Field(int width = FIELD_W)
 
 }  // namespace
 
-OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void()> onHost, std::function<void()> onJoin,
+OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(size_t)> onConnect,
+                       std::function<void(size_t)> onForget, std::function<void()> onHost, std::function<void()> onJoin,
                        std::function<void()> onLeave, std::function<void()> onBack)
     : theme(theme)
     , setup(setup)
     , window(agui::GuiDirection::Vertical, "Online")
+    , onConnect(std::move(onConnect))
+    , onForget(std::move(onForget))
 {
   this->window.setDragTarget(&this->window);
   agui::VerticalFlow& content = column(8);
@@ -81,6 +84,15 @@ OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void()> o
     label.style.setMaximalWidth(NOTE_W);
     return label;
   };
+
+  // The people met before: one click to meet again.
+  this->contactSection = &section("People you met");
+  this->contactList    = &column(4);
+  *this->contactSection << *this->contactList
+                        << note("Each of you picks the other here, and you meet in a room of your own on the relay: "
+                                "nobody else can come in.");
+  this->contactSection->setVisible(false);
+  content << *this->contactSection;
 
   // Hosting: this editor runs the session, and the others connect to it.
   this->hostSection = &section("Host a session");
@@ -143,22 +155,40 @@ void OnlinePage::refresh()
   this->port->setText(std::to_string(this->setup.port));
   this->address->setText(this->setup.address);
   this->room->setText(this->setup.room);
+  this->listContacts();
+}
+
+bool OnlinePage::listContacts()
+{
+  std::vector<std::string> names;
+  for (const Contact& c : this->setup.contacts) names.push_back(c.name);
+  if (names == this->listed) return false;
+  this->listed = names;
+
+  this->contactList->clear();
+  for (size_t i = 0; i < names.size(); ++i) {
+    agui::HorizontalFlow& line = row(8);
+    line.style.setHorizontallyStretchable(true);
+    agui::Label& who = agui::label(names[i]);
+    who.setToolTip("On " + this->setup.contacts[i].relay);
+    line << who << agui::pusher << agui::button("Connect", &this->window, [this, i] { this->onConnect(i); })
+         << agui::button("Forget", &this->window, [this, i] { this->onForget(i); });
+    *this->contactList << line;
+  }
+  return true;
 }
 
 void OnlinePage::show(const Status& status)
 {
-  const bool samePeople = status.people.size() == this->shown.people.size() &&
-                          std::equal(status.people.begin(), status.people.end(), this->shown.people.begin(),
-                                     [](const net::Participant& a, const net::Participant& b) {
-                                       return a.id == b.id && a.name == b.name && a.colour == b.colour;
-                                     });
-  if (this->everShown && status.active == this->shown.active && status.what == this->shown.what && samePeople &&
-      status.self == this->shown.self) {
+  const bool listChanged = this->listContacts();
+  if (this->everShown && !listChanged && status.active == this->shown.active && status.what == this->shown.what &&
+      status.people == this->shown.people && status.self == this->shown.self) {
     return;
   }
   this->everShown = true;
   this->shown     = status;
 
+  this->contactSection->setVisible(!status.active && !this->setup.contacts.empty());
   this->hostSection->setVisible(!status.active);
   this->joinSection->setVisible(!status.active);
   this->sessionSection->setVisible(status.active);

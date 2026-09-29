@@ -70,6 +70,8 @@ App::Window::~Window()
 App::App()
 {
   ApplySettings(this->settings);
+  // Whoever is met on a relay goes on the list of people met.
+  this->sharing.setContacts(&this->settings.online.contacts);
 
   // The shortcuts are read before the Gui each frame; the keys they take
   // never reach it.
@@ -242,13 +244,30 @@ void App::handlePages()
     break;
   case ui::Pages::Action::HostSession: {
     std::string error;
-    if (!this->sharing.host(this->settings.online.port, this->settings.online.name, &error)) this->gui.editor().message(error, false);
+    if (!this->sharing.host(this->settings.online.port, this->settings.online.name, this->settings.online.identity, &error)) {
+      this->gui.editor().message(error, false);
+    }
     this->settings.save();  // the name and port, for next time
     break;
   }
   case ui::Pages::Action::JoinSession:
-    this->sharing.join(this->settings.online.address, this->settings.online.room, this->settings.online.name);
+    this->sharing.join(this->settings.online.address, this->settings.online.room, this->settings.online.name,
+                       this->settings.online.identity);
     this->settings.save();
+    break;
+  case ui::Pages::Action::ConnectContact:
+    if (pages.contact() < this->settings.online.contacts.size()) {
+      const Contact& with = this->settings.online.contacts[pages.contact()];
+      this->sharing.join(with.relay, with.key, this->settings.online.name, this->settings.online.identity);
+      this->settings.save();
+    }
+    break;
+  case ui::Pages::Action::ForgetContact:
+    if (pages.contact() < this->settings.online.contacts.size()) {
+      auto& contacts = this->settings.online.contacts;
+      contacts.erase(contacts.begin() + std::ptrdiff_t(pages.contact()));
+      this->settings.save();
+    }
     break;
   case ui::Pages::Action::LeaveSession:
     this->sharing.leave();
@@ -447,6 +466,7 @@ void App::updateSharing()
   }
   editor.setOwnColour(this->sharing.ownColour());
   for (const std::string& message : this->sharing.takeMessages()) editor.message(message);
+  if (this->sharing.contactsChanged()) this->settings.save();
 
   ui::EditorView::Presence presence;
   if (const net::Session* s = this->sharing.current()) {
@@ -472,11 +492,13 @@ void App::updateSharing()
           where += s->port() == net::DEFAULT_PORT ? host : host + ":" + std::to_string(s->port());
         }
         status.what = "Hosting. Others join at " + (where.empty() ? std::string("this computer's address") : where) + ".";
+      } else if (const Contact* with = this->sharing.pairRoom()) {
+        status.what = "In your own room with " + with->name + " on the relay.";
       } else if (s->isJoined()) {
         status.what = s->room().empty() ? std::string("In the session.")
                                         : "In room " + s->room() + " on the relay. Others join it with the same address and this code.";
       } else {
-        status.what = "Connecting to " + this->settings.online.address + "...";
+        status.what = "Connecting to " + this->sharing.address() + "...";
       }
     }
     this->gui.pages().online.show(status);
