@@ -299,8 +299,8 @@ ForEach( .Cfg in .Configs )
                    + .Subsystem
                    + .ConfigLinkerOptions
                    // advapi32 for the registry (the .sgf association), ole32
-                   // for the Documents folder's path.
-                   + ' opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib kernel32.lib advapi32.lib ole32.lib'
+                   // for the Documents folder's path, ws2_32 for sharing a game.
+                   + ' opengl32.lib gdi32.lib winmm.lib user32.lib shell32.lib kernel32.lib advapi32.lib ole32.lib ws2_32.lib'
   }
 
   Alias( '$Config$' ) { .Targets = { 'goeditor-$Config$' } }

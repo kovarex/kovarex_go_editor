@@ -14,6 +14,7 @@
 #include <ui/ConfirmPage.hpp>
 #include <ui/ControlsPage.hpp>
 #include <ui/NewGamePage.hpp>
+#include <ui/OnlinePage.hpp>
 #include <ui/SettingsPage.hpp>
 
 #include <Agui/GenericTargetable.hpp>
@@ -35,7 +36,7 @@ class Theme;
 
 class Pages : public agui::GenericTargetable {
 public:
-  enum class Page { None, NewGame, GameInfo, Settings, Controls, About, Files, Confirm };
+  enum class Page { None, NewGame, GameInfo, Settings, Controls, About, Online, Files, Confirm };
 
   enum class Action {
     None,
@@ -49,6 +50,7 @@ public:
     DiscardSettings,  // Settings' Back: put back what there was when it opened
     SaveControls,     // Controls' Confirm: keep the keys the page changed
     OpenProjectPage,  // About's link: the project's page in the browser
+    Online,           // the Online page asked for onlineRequest(), about contact() for a contact
     Back,           // a page's Back or Cancel: nothing to do, and nothing waiting on it either
   };
 
@@ -77,12 +79,17 @@ public:
 
   Action takeAction();
   const std::filesystem::path& chosenFile() const { return this->chosen; }
+  // What the Online page asked for, and which of settings.online.contacts
+  // Connect or Forget is about.
+  OnlinePage::Request onlineRequest() const { return this->request; }
+  size_t contact() const { return this->chosenContact; }
 
   NewGamePage  newGame;
   GameInfoPage gameInfo;
   SettingsPage settings;
   ControlsPage controls;
   AboutPage    about;
+  OnlinePage   online;
   FilePage     files;
   ConfirmPage  confirm;
 
@@ -100,6 +107,8 @@ private:
   Action                pending = Action::None;
   Page                  page    = Page::None;
   std::filesystem::path chosen;
+  size_t                chosenContact = 0;
+  OnlinePage::Request   request       = OnlinePage::Request::Leave;
   std::optional<std::string> searchShortcut;  // what the search tooltips were given
   bool recentre = true;
   int  lastScreenWidth = 0, lastScreenHeight = 0;

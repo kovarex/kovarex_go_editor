@@ -70,6 +70,8 @@ App::Window::~Window()
 App::App()
 {
   ApplySettings(this->settings);
+  // Whoever is met on a relay goes on the list of people met.
+  this->sharing.setContacts(&this->settings.online.contacts);
 
   // The shortcuts are read before the Gui each frame; the keys they take
   // never reach it.
@@ -116,6 +118,7 @@ void App::frame()
   this->handlePages();
   this->handleDroppedFiles();
   this->handleClose();
+  this->updateSharing();
   this->updateTitle();
 
   BeginDrawing();
@@ -157,6 +160,10 @@ void App::handle(Command command)
     break;
   case Command::AiSensei:
     this->sendToAiSensei();
+    break;
+  case Command::Online:
+    pages.online.refresh();
+    pages.open(ui::Pages::Page::Online);
     break;
   case Command::About:
     pages.open(ui::Pages::Page::About);
@@ -235,6 +242,38 @@ void App::handlePages()
     this->settings.controls = pages.controls.draft();
     this->settings.save();
     break;
+  case ui::Pages::Action::Online: {
+    // The name, addresses and codes are kept for next time, whatever was asked.
+    OnlineSetup&       online = this->settings.online;
+    const std::string& name   = online.name;
+    const size_t       index  = pages.contact();
+    using Request             = ui::OnlinePage::Request;
+    switch (pages.onlineRequest()) {
+    case Request::Connect:
+      if (index < online.contacts.size()) {
+        const Contact& with = online.contacts[index];
+        this->sharing.join(with.relay, with.key, name, online.identity);
+      }
+      break;
+    case Request::Forget:
+      if (index < online.contacts.size()) online.contacts.erase(online.contacts.begin() + std::ptrdiff_t(index));
+      break;
+    case Request::OpenRoom:   this->sharing.join(online.relay, "", name, online.identity); break;
+    case Request::JoinRoom:   this->sharing.join(online.relay, online.room, name, online.identity); break;
+    case Request::JoinDirect: this->sharing.join(online.address, "", name, online.identity); break;
+    case Request::Host: {
+      std::string error;
+      if (!this->sharing.host(online.port, name, online.identity, &error)) this->gui.editor().message(error, false);
+      break;
+    }
+    case Request::Leave:
+      this->sharing.leave();
+      this->gui.editor().message("Left the session.");
+      break;
+    }
+    this->settings.save();
+    break;
+  }
   case ui::Pages::Action::OpenProjectPage: {
     std::string error;
     if (!platform::OpenInBrowser(ui::PROJECT_URL, &error)) this->gui.editor().message(error, false);
@@ -416,6 +455,61 @@ std::filesystem::path App::folder() const
 }
 
 // ---------------------------------------------------------------- the window
+
+void App::updateSharing()
+{
+  ui::EditorView& editor = this->gui.editor();
+  // Drawn here: to the others. (Without a session the lines are only here.)
+  for (const net::StrokePart& part : editor.takeStrokes()) this->sharing.sendStroke(part);
+  if (this->game) this->sharing.update(*this->game);
+  for (const net::Session::Event& e : this->sharing.takeStrokes()) {
+    editor.addStroke(e.author, this->sharing.colourOf(e.author), e.stroke);
+  }
+  editor.setOwnColour(this->sharing.ownColour());
+  for (const std::string& message : this->sharing.takeMessages()) editor.message(message);
+  if (this->sharing.contactsChanged()) this->settings.save();
+
+  ui::EditorView::Presence presence;
+  if (const net::Session* s = this->sharing.current()) {
+    using Mode      = ui::EditorView::Presence::Mode;
+    presence.mode   = s->isHost() || this->sharing.started() ? Mode::Hosting : s->isJoined() ? Mode::Joined : Mode::Connecting;
+    presence.people = s->participants();
+    presence.self   = s->self();
+  }
+  editor.showPresence(presence);
+
+  // The Online page, while it is up, shows the session as it is.
+  if (this->gui.pages().current() == ui::Pages::Page::Online) {
+    ui::OnlinePage::Status status;
+    if (const net::Session* s = this->sharing.current()) {
+      status.active = true;
+      status.people = s->participants();
+      status.self   = s->self();
+      if (s->isHost()) {
+        std::string where;
+        for (const std::string& address : this->sharing.addresses()) {
+          if (!where.empty()) where += " or ";
+          const std::string host = address.find(':') != std::string::npos ? "[" + address + "]" : address;
+          where += s->port() == net::DEFAULT_PORT ? host : host + ":" + std::to_string(s->port());
+        }
+        status.what = "Hosting. Others join at " + (where.empty() ? std::string("this computer's address") : where) + ".";
+      } else if (const Contact* with = this->sharing.pairRoom()) {
+        status.what = "In the room you share with " + with->name + ", on the relay.";
+      } else if (s->isJoined()) {
+        if (s->room().empty()) {
+          status.what = "In the session.";
+        } else {
+          status.what = "On the relay. Someone new joins with the invite code; the people you met can connect to you "
+                        "without it.";
+          status.code = s->room();
+        }
+      } else {
+        status.what = "Connecting to " + this->sharing.address() + "...";
+      }
+    }
+    this->gui.pages().online.show(status);
+  }
+}
 
 void App::updateTitle()
 {

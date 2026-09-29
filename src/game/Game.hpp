@@ -113,6 +113,11 @@ public:
   bool nextVariation();
   bool previousVariation();
   void goTo(sgf::Node& node);
+  // Where the current node is, as the child indices from the root -- how
+  // editors sharing a game tell each other where they are.
+  std::vector<int> path() const { return this->cursorPath(); }
+  // To the node at `path`, or as far along it as the record goes.
+  void goToPath(const std::vector<int>& path);
   // To the node that put the stone at `p` on the board: the move that played
   // it, or the set-up that added it. False if there is no stone there.
   bool goToStone(Point p);
@@ -144,6 +149,11 @@ public:
   // turned has its sides swapped. For a game recorded from the other side,
   // or to put the corner the game starts in where the player expects it.
   Outcome transform(BoardTransform how);
+
+  // The whole record replaced with `file`, and the editor at `path` in it:
+  // someone else's edit, in a shared game, arriving. One undo step, like any
+  // other edit.
+  void replace(sgf::Collection file, const std::vector<int>& path);
 
   // --- the clipboard: branches as SGF text, so they go to and from other
   // programs as well ---

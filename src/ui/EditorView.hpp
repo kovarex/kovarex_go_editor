@@ -55,6 +55,23 @@ public:
   void setBindings(const Bindings& bindings);
   // Move numbers on the game tree's stones.
   void setTreeNumbers(bool on);
+  // Drawing on the board (see BoardView): what was drawn here, what others
+  // drew, and the colour lines drawn here come out in.
+  std::vector<net::StrokePart> takeStrokes() { return this->board.takeStrokes(); }
+  void addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part) { this->board.addStroke(author, colour, part); }
+  void setOwnColour(uint8_t colour) { this->board.setOwnColour(colour); }
+
+  // Whether this editor shares its game, as the panel's first box shows it:
+  // offline, connecting, hosting or joined, and who else is there.
+  struct Presence {
+    enum class Mode { Offline, Connecting, Hosting, Joined };
+    Mode                          mode = Mode::Offline;
+    std::vector<net::Participant> people;
+    uint32_t                      self = 0;
+    bool operator==(const Presence&) const = default;
+  };
+  void showPresence(const Presence& presence);
+
   // The interface scale, in percent, which the board lines its grid up with.
   void setScale(int percent) { this->board.setScale(percent); }
 
@@ -120,10 +137,10 @@ private:
   agui::Label*     whiteName = nullptr;
   agui::Label*     blackCaptures = nullptr;
   agui::Label*     whiteCaptures = nullptr;
-  agui::Label*     moveLabel = nullptr;
-  agui::Label*     turnLabel = nullptr;
-  agui::Label*     variationsLabel = nullptr;
-  agui::Label*     gameLabel = nullptr;
+  agui::Label*     presenceLabel = nullptr;
+  agui::Widget*    presenceInfo = nullptr;  // the (i) with who is there, when not offline
+  Presence         shownPresence;
+  bool             presenceShown = false;
   agui::Label*     status = nullptr;
   agui::TextField* labelText = nullptr;
   agui::TextField* nodeName = nullptr;

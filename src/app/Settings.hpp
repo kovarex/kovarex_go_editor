@@ -5,11 +5,38 @@
 #pragma once
 
 #include <game/Game.hpp>
+#include <net/Protocol.hpp>
 #include <ui/Controls.hpp>
 
 #include <algorithm>
 #include <filesystem>
 #include <string>
+#include <vector>
+
+// Someone met in a room on a relay, remembered so as to meet again: the two
+// editors keep a room key of their own there (see net::Type::Pair), and
+// whichever of them comes to it first opens it.
+struct Contact {
+  std::string identity;  // theirs: how they are known when met again
+  std::string name;      // as they last called themselves
+  std::string relay;     // the relay's address
+  std::string key;       // the pair's room on it
+};
+
+// What the Online page was last set to: the name to go by in a shared game;
+// the relay, and the invite code last joined with there; and, for going
+// without the relay, the port to host on and the address of an editor that
+// hosts. And the people met on the relay before.
+struct OnlineSetup {
+  std::string name;
+  std::string relay = net::DEFAULT_RELAY;
+  std::string room;  // an invite code
+  int         port = net::DEFAULT_PORT;
+  std::string address;
+  // This editor's identity: made up the first time, then kept.
+  std::string          identity;
+  std::vector<Contact> contacts;
+};
 
 struct Settings {
   struct Graphics {
@@ -74,6 +101,8 @@ struct Settings {
 
   // What the New game page is set up for: the last game started.
   GameSetup newGame;
+
+  OnlineSetup online;
 
   // Where the file browser was last, as UTF-8.
   std::string folder;

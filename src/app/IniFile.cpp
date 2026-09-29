@@ -96,6 +96,14 @@ bool IniFile::getBool(std::string_view section, std::string_view key, bool fallb
   return fallback;
 }
 
+std::vector<std::pair<std::string, std::string>> IniFile::entries(std::string_view section) const
+{
+  for (const Section& s : this->sections) {
+    if (s.name == section) return s.entries;
+  }
+  return {};
+}
+
 void IniFile::set(std::string_view section, std::string_view key, std::string value)
 {
   Section& s = this->sectionNamed(section);

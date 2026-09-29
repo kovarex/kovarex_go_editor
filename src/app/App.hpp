@@ -9,6 +9,7 @@
 #pragma once
 
 #include <app/Settings.hpp>
+#include <app/Sharing.hpp>
 #include <game/Game.hpp>
 #include <ui/Commands.hpp>
 #include <ui/GuiLayer.hpp>
@@ -48,6 +49,9 @@ private:
   // The interface scale's controls: a step up or down, or back to automatic.
   void scale(Command command);
   void updateTitle();
+  // Sends this frame's edits to the others sharing the game, and applies
+  // theirs; the lines drawn on the board both ways.
+  void updateSharing();
 
   // Asks about unsaved changes, if there are any, and then does `then`.
   void guard(After then, const std::filesystem::path& file = {});
@@ -78,6 +82,9 @@ private:
   Window       window{ this->settings };
   ui::GuiLayer gui{ this->settings, this->pictures };
   ui::Shortcuts shortcuts;
+
+  // The game shared with other editors, when it is.
+  Sharing sharing;
 
   std::unique_ptr<Game>  game;
   std::filesystem::path  path;  // empty until the game is saved or was opened

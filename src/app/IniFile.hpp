@@ -24,6 +24,8 @@ public:
   std::string getString(std::string_view section, std::string_view key, std::string_view fallback) const;
   int         getInt(std::string_view section, std::string_view key, int fallback) const;
   bool        getBool(std::string_view section, std::string_view key, bool fallback) const;
+  // Every key of `section` with its value, in order; none if there is no such section.
+  std::vector<std::pair<std::string, std::string>> entries(std::string_view section) const;
 
   void set(std::string_view section, std::string_view key, std::string value);
   void setInt(std::string_view section, std::string_view key, int value);

@@ -8,6 +8,8 @@
 #include <Agui/PaintEvent.hpp>
 
 #include <algorithm>
+#include <chrono>
+#include <iterator>
 #include <cmath>
 #include <numeric>
 
@@ -216,6 +218,45 @@ void LineLayer::paintComponent(const agui::PaintEvent& paintEvent, const agui::P
   }
 }
 
+// ---------------------------------------------------------------- strokes
+
+agui::Color ParticipantColour(uint8_t index)
+{
+  // Strong, and far enough apart to tell who drew what, on the wood and on
+  // the stones alike.
+  static constexpr uint8_t PALETTE[][3] = {
+    { 225, 40, 40 },  { 30, 100, 235 }, { 25, 160, 60 },  { 240, 130, 0 },
+    { 150, 60, 215 }, { 0, 165, 185 },  { 225, 50, 160 }, { 235, 205, 0 },
+  };
+  const auto& c = PALETTE[index % std::size(PALETTE)];
+  return agui::Color(c[0] / 255.0f, c[1] / 255.0f, c[2] / 255.0f, 1.0f);
+}
+
+StrokeLayer::StrokeLayer()
+{
+  this->setIgnoredByInteraction(true);
+  this->setFocusable(false);
+}
+
+void StrokeLayer::setStrokes(std::vector<Stroke> newStrokes, float newThickness)
+{
+  this->strokes   = std::move(newStrokes);
+  this->thickness = newThickness;
+}
+
+void StrokeLayer::paintComponent(const agui::PaintEvent& paintEvent, const agui::Point&)
+{
+  agui::Graphics* g = paintEvent.graphics();
+  for (const Stroke& s : this->strokes) {
+    const agui::Color c(s.colour.getR(), s.colour.getG(), s.colour.getB(), s.colour.getA() * s.opacity);
+    // Segments, and a dot at each joint so the corners come out round.
+    for (size_t i = 0; i < s.points.size(); ++i) {
+      if (i > 0) g->drawLine(s.points[i - 1], s.points[i], c, this->thickness);
+      g->drawFilledCircle(s.points[i], this->thickness / 2.0f, c);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- board
 
 BoardView::BoardView(Theme& theme, const GoSprites& sprites)
@@ -344,6 +385,9 @@ void BoardView::build()
 
   this->lineLayer = &make<LineLayer>();
   this->board << *this->lineLayer;
+  // Drawn lines over everything, the arrows included.
+  this->strokeLayer = &make<StrokeLayer>();
+  this->board << *this->strokeLayer;
 }
 
 // ---------------------------------------------------------------- layout
@@ -464,6 +508,8 @@ void BoardView::place()
 
   this->lineLayer->setLocation(0, 0);
   this->lineLayer->setSize(boardW, boardH);
+  this->strokeLayer->setLocation(0, 0);
+  this->strokeLayer->setSize(boardW, boardH);
   this->dirty = true;
 }
 
@@ -478,6 +524,8 @@ void BoardView::refresh()
     this->dirty = true;
   }
   if (this->points.empty()) return;
+  // Drawn lines fade whether or not the game changes.
+  this->updateStrokes();
   if (!this->dirty && this->shownRevision == this->game->revision()) return;
   this->dirty         = false;
   this->shownRevision = this->game->revision();
@@ -620,7 +668,20 @@ void BoardView::pressed(Point p, const agui::MouseEvent& event)
   if (agui::Gui* gui = this->board.getGui()) {
     if (agui::Widget* focused = gui->getFocusedWidget(); focused && focused->isTextBox()) gui->clearFocus();
   }
-  if (event.getButton() != agui::MouseButton::LEFT) return;
+  // Drawing rather than editing: the middle button whatever the tool, or the
+  // left one with the Pen tool.
+  const agui::MouseButton button = event.getButton();
+  if (button == agui::MouseButton::MIDDLE || (button == agui::MouseButton::LEFT && this->tool == Tool::Pen)) {
+    this->drawingWith = button;
+    this->drawingOn   = p;
+    Drawn line;
+    line.id     = this->nextStroke++;
+    line.colour = this->ownColour;
+    this->sketches.push_back(std::move(line));
+    this->drawTo(this->boardAt(p, event));
+    return;
+  }
+  if (button != agui::MouseButton::LEFT) return;
   this->pressPoint = p;
   this->dragTarget = p;
   this->dragging   = false;
@@ -628,6 +689,10 @@ void BoardView::pressed(Point p, const agui::MouseEvent& event)
 
 void BoardView::dragged(Point p, const agui::MouseEvent& event)
 {
+  if (this->drawingWith != agui::MouseButton::NONE) {
+    if (p == this->drawingOn) this->drawTo(this->boardAt(p, event));
+    return;
+  }
   if (!this->game || this->pressPoint != p) return;
   // Only stones move, and only with the tools that put stones down.
   const bool stoneTool = this->tool == Tool::Play || this->tool == Tool::Black || this->tool == Tool::White;
@@ -644,6 +709,20 @@ void BoardView::dragged(Point p, const agui::MouseEvent& event)
 void BoardView::released(Point p, const agui::MouseEvent& event)
 {
   if (!this->game) return;
+
+  if (this->drawingWith != agui::MouseButton::NONE && event.getButton() == this->drawingWith) {
+    this->drawingWith = agui::MouseButton::NONE;
+    if (p == this->drawingOn) this->drawTo(this->boardAt(p, event));
+    // The line is done: it fades from now, and the others are told.
+    for (auto it = this->sketches.rbegin(); it != this->sketches.rend(); ++it) {
+      if (it->author != 0 || it->finished) continue;
+      it->finished   = true;
+      it->finishedAt = Now();
+      this->outgoing.push_back({ it->id, {}, true });
+      break;
+    }
+    return;
+  }
 
   if (event.getButton() == agui::MouseButton::RIGHT) {
     // Released where it was pressed, like a click.
@@ -754,6 +833,99 @@ void BoardView::report(const Outcome& outcome)
 {
   this->dirty = true;
   if (this->onOutcome) this->onOutcome(outcome);
+}
+
+// ---------------------------------------------------------------- drawing
+
+namespace {
+
+// How long a finished line stays, and how long it then takes to fade.
+constexpr double STROKE_HOLD = 2.5;
+constexpr double STROKE_FADE = 1.0;
+// Points closer than this, in board units, add nothing a line would show.
+constexpr float STROKE_STEP = 0.04f;
+
+}  // namespace
+
+double BoardView::Now()
+{
+  using namespace std::chrono;
+  return duration<double>(steady_clock::now().time_since_epoch()).count();
+}
+
+std::pair<float, float> BoardView::boardAt(Point on, const agui::MouseEvent& event) const
+{
+  if (this->pitch <= 0) return { float(on.x), float(on.y) };
+  // The event is in the pressed point's own coordinates, its centre half a
+  // pitch in.
+  const float half = float(this->pitch) / 2.0f;
+  return { float(on.x) + (float(event.getPosition().x) - half) / float(this->pitch),
+           float(on.y) + (float(event.getPosition().y) - half) / float(this->pitch) };
+}
+
+void BoardView::drawTo(std::pair<float, float> at)
+{
+  // The line being drawn here: the last of ours not finished.
+  auto line = std::find_if(this->sketches.rbegin(), this->sketches.rend(), [](const Drawn& d) { return d.author == 0 && !d.finished; });
+  if (line == this->sketches.rend()) return;
+  if (!line->points.empty()) {
+    const float dx = at.first - line->points.back().first, dy = at.second - line->points.back().second;
+    if (dx * dx + dy * dy < STROKE_STEP * STROKE_STEP) return;
+  }
+  line->points.push_back(at);
+  // Sent a few points at a time: whatever this frame added goes as one part.
+  if (this->outgoing.empty() || this->outgoing.back().stroke != line->id || this->outgoing.back().finished) {
+    this->outgoing.push_back({ line->id, {}, false });
+  }
+  this->outgoing.back().points.push_back(at);
+}
+
+void BoardView::addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part)
+{
+  auto line = std::find_if(this->sketches.begin(), this->sketches.end(),
+                           [&](const Drawn& d) { return d.author == author && d.id == part.stroke; });
+  if (line == this->sketches.end()) {
+    Drawn d;
+    d.author = author;
+    d.id     = part.stroke;
+    d.colour = colour;
+    this->sketches.push_back(std::move(d));
+    line = std::prev(this->sketches.end());
+  }
+  line->points.insert(line->points.end(), part.points.begin(), part.points.end());
+  if (part.finished && !line->finished) {
+    line->finished   = true;
+    line->finishedAt = Now();
+  }
+}
+
+std::vector<net::StrokePart> BoardView::takeStrokes()
+{
+  std::vector<net::StrokePart> taken;
+  taken.swap(this->outgoing);
+  return taken;
+}
+
+void BoardView::updateStrokes()
+{
+  const double now = Now();
+  std::erase_if(this->sketches, [now](const Drawn& d) { return d.finished && now - d.finishedAt > STROKE_HOLD + STROKE_FADE; });
+  if (!this->strokeLayer || this->pitch <= 0) return;
+
+  // Board coordinates to the board's own pixels: a point's centre is half a
+  // pitch into its square.
+  const float origin = float(this->margin) + float(this->pitch) / 2.0f;
+  std::vector<StrokeLayer::Stroke> shown;
+  for (const Drawn& d : this->sketches) {
+    StrokeLayer::Stroke s;
+    s.colour  = ParticipantColour(d.colour);
+    s.opacity = d.finished ? float(std::clamp(1.0 - (now - d.finishedAt - STROKE_HOLD) / STROKE_FADE, 0.0, 1.0)) : 1.0f;
+    for (const auto& [x, y] : d.points) {
+      s.points.emplace_back(int(std::lround(origin + x * float(this->pitch))), int(std::lround(origin + y * float(this->pitch))));
+    }
+    shown.push_back(std::move(s));
+  }
+  this->strokeLayer->setStrokes(std::move(shown), std::max(3.0f, float(this->pitch) / 9.0f));
 }
 
 }  // namespace ui

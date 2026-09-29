@@ -92,6 +92,9 @@ public:
   float getAscent() const override { return float(this->height) * 0.8f; }
   int   getTextWidth(std::string_view text, agui::RichTextSetting, double scale = 1) const override;
   size_t getWrapIndex(std::string_view text, int width, double scale = 1) const override;
+  // Agui's takes every line to end in a line break, and a click past the end
+  // of a text field's one line to be before its last character.
+  int getStringIndexFromPosition(std::string_view text, int x, agui::RichTextSetting) const override;
   int   getSubstringWidth(std::string_view text, const agui::RichTextData&,
                           agui::RichTextSetting = agui::RichTextSetting::Enabled,
                           double scale = 1) const override;

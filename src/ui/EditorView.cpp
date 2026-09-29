@@ -34,6 +34,9 @@ constexpr float STATUS_SECONDS = 6.0f;
 // the bottom of the window instead.
 constexpr int MIN_COMMENT_H = 60;
 constexpr int MIN_TREE_H    = 60;
+// The info mark after a name with a tooltip: Factorio's size for it.
+constexpr int INFO_W = 8;
+constexpr int INFO_H = 20;
 
 struct ToolLook {
   Tool                  tool;
@@ -61,6 +64,7 @@ constexpr ToolLook TOOLS[] = {
   { Tool::TerritoryBlack, Sprite::TerritoryBlack, "",    "Black's territory" },
   { Tool::TerritoryWhite, Sprite::TerritoryWhite, "",    "White's territory" },
   { Tool::Dim,            std::nullopt,           "Dim", "Dim points, to put them in the background" },
+  { Tool::Pen,            Sprite::Pen,            "",    "Draw on the board, to show something -- in a shared game, the others see it too. The lines fade away. The middle mouse button draws whatever the tool." },
 };
 
 // The drop-downs' items, and the SGF property each sets.
@@ -185,6 +189,7 @@ agui::Widget& EditorView::buildTopBar()
   this->title->style.setLeftPadding(16);
   bar << *this->title;
   bar << agui::pusher;
+  bar << this->commandButton("Online", Command::Online, "Share this game with other editors: all of you edit it, and see the same position", 80);
   bar << this->commandButton("Controls", Command::Controls, nullptr, 90);
   bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
   bar << this->commandButton("About", Command::About, nullptr, 70);
@@ -208,21 +213,19 @@ agui::Widget& EditorView::buildPlayers()
   rows << *playerRow(Sprite::BlackStone, this->blackName, this->blackCaptures);
   rows << *playerRow(Sprite::WhiteStone, this->whiteName, this->whiteCaptures);
 
-  // The move and whose turn it is; under it, the variations from here and
-  // the game's komi, handicap and result. (Not its size: the board shows that.)
-  agui::HorizontalFlow& move = row(8);
-  move.style.setHorizontallyStretchable(true);
-  this->moveLabel = &agui::label("");
-  this->turnLabel = &agui::label("");
-  move << *this->moveLabel << agui::pusher << *this->turnLabel;
-  rows << move;
-
-  agui::HorizontalFlow& about = row(8);
-  about.style.setHorizontallyStretchable(true);
-  this->variationsLabel = &agui::label("", &this->theme.dimLabel);
-  this->gameLabel       = &agui::label("", &this->theme.dimLabel);
-  about << *this->variationsLabel << agui::pusher << *this->gameLabel;
-  rows << about;
+  // Whether the game is shared, and with how many; the (i) after it tells
+  // who, in their colours.
+  agui::HorizontalFlow& presence = row(4);
+  this->presenceLabel = &agui::label("Offline", &this->theme.dimLabel);
+  agui::ImageWidget& info = make<agui::ImageWidget>(this->theme.infoIcon());
+  info.style.setMinimalWidth(INFO_W);
+  info.style.setMaximalWidth(INFO_W);
+  info.style.setMinimalHeight(INFO_H);
+  info.style.setMaximalHeight(INFO_H);
+  info.setVisible(false);
+  this->presenceInfo = &info;
+  presence << *this->presenceLabel << info;
+  rows << presence;
 
   panel << rows;
   return panel;
@@ -309,7 +312,7 @@ agui::Widget& EditorView::buildTools()
   this->labelText->setToolTip("What the Text tool writes on the board");
   this->labelText->onTextEdit(this, [this] { this->setTool(Tool::Text); });
   labels << *this->labelText;
-  for (Tool t : { Tool::Arrow, Tool::Line }) labels << this->toolButton(t);
+  for (Tool t : { Tool::Arrow, Tool::Line, Tool::Pen }) labels << this->toolButton(t);
   // Turning and mirroring the board, beside the marks: two rows of two, so
   // the panel grows no taller for them.
   agui::HorizontalFlow& turns = row(4);
@@ -434,6 +437,35 @@ void EditorView::applyTips()
 void EditorView::setTreeNumbers(bool on)
 {
   this->tree.setNumbers(on);
+}
+
+void EditorView::showPresence(const Presence& presence)
+{
+  if (this->presenceShown && presence == this->shownPresence) return;
+  this->presenceShown = true;
+  this->shownPresence = presence;
+
+  using Mode = Presence::Mode;
+  const std::string others = " (" + std::to_string(presence.people.empty() ? 0 : presence.people.size() - 1) + " connected)";
+  switch (presence.mode) {
+  case Mode::Offline:    this->presenceLabel->setText(std::string("Offline")); break;
+  case Mode::Connecting: this->presenceLabel->setText(std::string("Connecting...")); break;
+  case Mode::Hosting:    this->presenceLabel->setText("Hosting" + others); break;
+  case Mode::Joined:     this->presenceLabel->setText("Joined" + others); break;
+  }
+  this->presenceLabel->style.setParent(presence.mode == Mode::Offline ? &this->theme.dimLabel : &agui::Label::defaultStyle);
+
+  // Who is there, each name in the colour they draw in.
+  std::string who;
+  for (const net::Participant& p : presence.people) {
+    const agui::Color c = ParticipantColour(p.colour);
+    if (!who.empty()) who += "\n";
+    who += "[color=" + std::to_string(int(c.getR() * 255)) + "," + std::to_string(int(c.getG() * 255)) + "," +
+           std::to_string(int(c.getB() * 255)) + "]" + p.name + "[/color]" + (p.id == presence.self ? " (you)" : "");
+  }
+  this->presenceInfo->setVisible(!who.empty());
+  this->presenceLabel->setToolTip(who);
+  this->presenceInfo->setToolTip(who);
 }
 
 std::vector<Command> EditorView::takeCommands()
@@ -591,25 +623,6 @@ void EditorView::refresh()
   this->whiteName->setText(Player(root, "PW", "WR", "White"));
   this->blackCaptures->setText("captures " + std::to_string(position.captures(Stone::Black)));
   this->whiteCaptures->setText("captures " + std::to_string(position.captures(Stone::White)));
-
-  // "Move 45  Q16", whose turn, and what hangs off this point.
-  std::string move = "Move " + std::to_string(this->game->moveNumber());
-  if (const Stone moved = Game::MoveColor(node); moved != Stone::None) {
-    const Point p = this->game->movePoint(node);
-    move += p.valid() ? "  " + DisplayName(p, this->game->width(), this->game->height()) : std::string("  pass");
-  }
-  this->moveLabel->setText(move);
-  this->turnLabel->setText(std::string(this->game->toPlay() == Stone::Black ? "Black" : "White") + " to play");
-  this->variationsLabel->setText(node.childCount() > 1 ? std::to_string(node.childCount()) + " variations from here"
-                                 : node.childCount() == 0 ? std::string("end of the line")
-                                                          : std::string());
-
-  std::string about;
-  const auto add = [&about](const std::string& part) { about += (about.empty() ? "" : "  ") + part; };
-  if (!root.get("KM").empty()) add("komi " + root.get("KM"));
-  if (!root.get("HA").empty()) add("H" + root.get("HA"));
-  if (!root.get("RE").empty()) add(root.get("RE"));
-  this->gameLabel->setText(about);
 
   // The comment: only when another node's comes up, or it changed some
   // other way -- an undo -- while the box wasn't being typed in, or the

@@ -9,3 +9,6 @@
 # Visual Studio keeps next to it.
 /GoEditor.sln
 /.vs/
+
+# The relay, as relay/build.sh builds it.
+/relay/go_relay

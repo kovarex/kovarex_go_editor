@@ -93,3 +93,13 @@ target_link_libraries(kovarex_go_editor PRIVATE agui raylib)
 # The C++ runtime built in, so the program runs on distributions older than
 # the compiler -- whose libstdc++ they wouldn't have.
 target_link_options(kovarex_go_editor PRIVATE -static-libstdc++ -static-libgcc)
+
+#------------------------------------------------------------------------------
+# The relay: a server for sharing games through, needing none of the above.
+# relay/build.sh builds it on its own, where there is no CMake (or X11).
+#------------------------------------------------------------------------------
+add_executable(go_relay relay/Relay.cpp src/net/Hub.cpp src/net/Socket.cpp src/net/WebSocket.cpp)
+target_include_directories(go_relay PRIVATE src)
+target_compile_options(go_relay PRIVATE -Wall)
+target_link_libraries(go_relay PRIVATE Threads::Threads)
+target_link_options(go_relay PRIVATE -static-libstdc++ -static-libgcc)
