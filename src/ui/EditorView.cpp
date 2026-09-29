@@ -24,16 +24,17 @@ namespace {
 
 // The tool buttons' size: Theme::toolButton's.
 constexpr int TOOL_PX = Theme::TOOL_PX;
-// The side panel's width. Nine tool buttons across, and the players' names.
+// The side panel's least width: nine tool buttons across, and the players' names.
+// It gets whatever the board leaves, which is usually more.
 constexpr int SIDE_W = 432;
-// Space kept round the board.
-constexpr int BOARD_GAP = 8;
 // How long a message stays on the status line.
 constexpr float STATUS_SECONDS = 6.0f;
 // Below this, the comment and the tree stop shrinking and the panel runs off
 // the bottom of the window instead.
 constexpr int MIN_COMMENT_H = 60;
 constexpr int MIN_TREE_H    = 60;
+// Comments are seldom long: more than this goes to the tree.
+constexpr int MAX_COMMENT_H = 120;
 // The info mark after a name with a tooltip: Factorio's size for it.
 constexpr int INFO_W = 8;
 constexpr int INFO_H = 20;
@@ -700,15 +701,18 @@ void EditorView::refresh()
 
 void EditorView::layout(int screenWidth, int screenHeight)
 {
-  // The bar across the top, the panel down the right, the board in the rest.
+  // The bar across the top; under it the board, as tall as the window
+  // leaves, and the panel down the right in whatever width is left -- at
+  // least SIDE_W, which the board gives way to in a narrow window.
   this->topBar.setLocation(0, 0);
   if (this->topBar.style.getMinimalWidth() != screenWidth) {
     this->topBar.style.setMinimalWidth(screenWidth);
     this->topBar.style.setMaximalWidth(screenWidth);
   }
-  const int top   = this->topBar.getHeight();
-  const int sideW = std::min(SIDE_W, screenWidth / 2);
-  const int sideH = std::max(0, screenHeight - top);
+  const int top    = this->topBar.getHeight();
+  const int sideH  = std::max(0, screenHeight - top);
+  const int boardW = this->board.layout(0, top, screenWidth - std::min(SIDE_W, screenWidth / 2), sideH);
+  const int sideW  = std::max(0, screenWidth - boardW);
   this->side.setLocation(screenWidth - sideW, top);
   if (this->side.style.getMinimalWidth() != sideW || this->side.style.getMinimalHeight() != sideH) {
     Pin(this->side, this->side.style, sideW, sideH);
@@ -719,7 +723,7 @@ void EditorView::layout(int screenWidth, int screenHeight)
   const int inner  = sideW - this->side.getHorizontalPaddings();
   const int chrome = this->side.getVerticalPaddings() + this->upper->getHeight() + this->status->getHeight() + 3 * 4 + 8;
   const int room   = std::max(MIN_COMMENT_H + MIN_TREE_H, sideH - chrome);
-  const int commentH = std::max(MIN_COMMENT_H, room * 2 / 5);
+  const int commentH = std::clamp(room / 4, MIN_COMMENT_H, MAX_COMMENT_H);
   const int treeH    = std::max(MIN_TREE_H, room - commentH);
   if (this->comment->getWidth() != inner || this->comment->getHeight() != commentH) {
     Pin(*this->comment, this->comment->style, inner, commentH);
@@ -727,7 +731,6 @@ void EditorView::layout(int screenWidth, int screenHeight)
   this->tree.setSize(inner, treeH);
   PinWidth(this->status->style, inner);
 
-  this->board.layout(BOARD_GAP, top + BOARD_GAP, screenWidth - sideW - 2 * BOARD_GAP, screenHeight - top - 2 * BOARD_GAP);
 }
 
 }  // namespace ui

@@ -392,9 +392,9 @@ void BoardView::build()
 
 // ---------------------------------------------------------------- layout
 
-void BoardView::layout(int x, int y, int width, int height)
+int BoardView::layout(int x, int y, int width, int height)
 {
-  if (!this->game || this->columns == 0) return;
+  if (!this->game || this->columns == 0) return width;
 
   const float marginPoints = this->options.coordinates ? MARGIN_WITH_COORDINATES : MARGIN_WITHOUT;
   const float across       = float(this->columns) + 2.0f * marginPoints;
@@ -404,19 +404,26 @@ void BoardView::layout(int x, int y, int width, int height)
   const int step     = this->snap;
   const int fit      = int(std::min(float(width) / across, float(height) / down));
   const int newPitch = std::max(2 * step * ((8 + 2 * step - 1) / (2 * step)), fit / (2 * step) * (2 * step));
+  const int natural  = std::max(step, int(std::lround(float(newPitch) * marginPoints / float(step))) * step);
+  // The wood takes up what the grid leaves of the height -- or of the width,
+  // if that is less -- the same all round.
+  const int spare     = std::min(height - newPitch * this->rows, width - newPitch * this->columns) / 2;
+  const int newMargin = std::max(natural, spare / step * step);
 
-  if (newPitch != this->pitch) {
-    this->pitch  = newPitch;
-    this->margin = std::max(step, int(std::lround(float(newPitch) * marginPoints / float(step))) * step);
-    this->theme.setPointSize(newPitch);
+  if (newPitch != this->pitch || newMargin != this->margin || natural != this->labelMargin) {
+    if (newPitch != this->pitch) this->theme.setPointSize(newPitch);
+    this->pitch       = newPitch;
+    this->margin      = newMargin;
+    this->labelMargin = natural;
     this->place();
   }
 
   const int boardW = this->pitch * this->columns + 2 * this->margin;
   const int boardH = this->pitch * this->rows + 2 * this->margin;
-  const int left = (x + (width - boardW) / 2) / step * step;
+  const int left = x / step * step;
   const int top  = (y + (height - boardH) / 2 + step - 1) / step * step;
   this->board.setLocation(left, top);
+  return boardW;
 }
 
 void BoardView::setScale(int percent)
@@ -465,7 +472,8 @@ void BoardView::place()
     star.setLocation(this->margin + this->starPoints[i].x * this->pitch, this->margin + this->starPoints[i].y * this->pitch);
   }
 
-  // The coordinates, centred in the margin on each side.
+  // The coordinates beside the grid, centred in the margin it would have
+  // were the wood not filling the space (labelMargin).
   for (agui::Label* label : this->columnLabels) {
     label->setVisible(this->options.coordinates);
     label->style.setMinimalWidth(this->pitch);
@@ -474,8 +482,8 @@ void BoardView::place()
   }
   for (agui::Label* label : this->rowLabels) {
     label->setVisible(this->options.coordinates);
-    label->style.setMinimalWidth(this->margin);
-    label->style.setMaximalWidth(this->margin);
+    label->style.setMinimalWidth(this->labelMargin);
+    label->style.setMaximalWidth(this->labelMargin);
     label->resizeToContents();
   }
   if (this->options.coordinates) {
@@ -483,14 +491,14 @@ void BoardView::place()
       agui::Label& top    = *this->columnLabels[size_t(i) * 2];
       agui::Label& bottom = *this->columnLabels[size_t(i) * 2 + 1];
       const int    lx     = this->margin + i * this->pitch;
-      top.setLocation(lx, (this->margin - top.getHeight()) / 2);
-      bottom.setLocation(lx, boardH - this->margin + (this->margin - bottom.getHeight()) / 2);
+      top.setLocation(lx, this->margin - this->labelMargin + (this->labelMargin - top.getHeight()) / 2);
+      bottom.setLocation(lx, boardH - this->margin + (this->labelMargin - bottom.getHeight()) / 2);
     }
     for (int j = 0; j < this->rows; ++j) {
       agui::Label& left  = *this->rowLabels[size_t(j) * 2];
       agui::Label& right = *this->rowLabels[size_t(j) * 2 + 1];
       const int    ly    = this->margin + j * this->pitch + (this->pitch - left.getHeight()) / 2;
-      left.setLocation(0, ly);
+      left.setLocation(this->margin - this->labelMargin, ly);
       right.setLocation(boardW - this->margin, ly);
     }
   }

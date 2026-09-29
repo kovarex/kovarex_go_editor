@@ -158,8 +158,11 @@ public:
   // it is called every frame.
   void refresh();
 
-  // Fits the board, as big as it will go, into this rectangle of the screen.
-  void layout(int x, int y, int width, int height);
+  // Fits the board, as big as it will go, into this rectangle of the screen,
+  // at its left and filling its height: the grid as big as it will go, and
+  // the wood round it taking up the rest -- there is no black above or below
+  // it unless the width is what limits it. Returns the board's width.
+  int layout(int x, int y, int width, int height);
 
   // The interface scale, in percent. At one like 125% a GUI unit is not a
   // whole number of pixels, and a one-unit line would come out one pixel
@@ -229,6 +232,7 @@ private:
 
   int columns = 0, rows = 0;
   int pitch = 0, margin = 0;  // px per point, and round the grid
+  int labelMargin = 0;        // what the margin would be without filling: the coordinates keep to that
   int snap  = 1;              // GUI units to a whole screen pixel: see setScale()
 
   // How far a line `width` wide starts before the middle of its points:
