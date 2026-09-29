@@ -175,6 +175,10 @@ public:
   // A mark on the current node: on if it was not there, off if it was. A point
   // carries one shape (or label) at a time.
   void toggleMark(Point p, Mark mark);
+  bool hasMark(Point p, Mark mark) const;
+  // Puts the mark on, or takes it off -- nothing if it already is so. With
+  // `sameEdit`, part of the last edit, for one undo: a drag across points.
+  void setMark(Point p, Mark mark, bool on, bool sameEdit);
   // A label, LB[p:text]. The same text again takes it off.
   void toggleLabel(Point p, const std::string& text);
   // The label the letter and number tools would put down next.

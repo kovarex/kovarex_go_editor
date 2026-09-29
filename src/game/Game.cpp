@@ -825,14 +825,27 @@ Outcome Game::setupStone(Point p, Stone color)
 
 void Game::toggleMark(Point p, Mark mark)
 {
-  if (!this->position().inside(p)) return;
-  this->beginEdit(false);
+  this->setMark(p, mark, !this->hasMark(p, mark), false);
+}
+
+bool Game::hasMark(Point p, Mark mark) const
+{
+  if (!this->position().inside(p)) return false;
+  const std::vector<Point> marked = PointList(this->cursor->values(MarkProperty(mark)));
+  return std::find(marked.begin(), marked.end(), p) != marked.end();
+}
+
+void Game::setMark(Point p, Mark mark, bool on, bool sameEdit)
+{
+  if (!this->position().inside(p) || this->hasMark(p, mark) == on) return;
+  if (!sameEdit || this->undoStack.empty()) this->beginEdit(false);
   sgf::Node&        node = *this->cursor;
   const char*       id   = MarkProperty(mark);
   const std::string v    = ToSgf(p);
 
   this->expandList(node, id);
-  if (node.removeValue(id, v)) {
+  if (!on) {
+    node.removeValue(id, v);
     this->touched(false);
     return;
   }

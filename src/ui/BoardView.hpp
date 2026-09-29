@@ -251,6 +251,11 @@ private:
   Point dragTarget;  // where a dragged stone would go
   bool  dragging = false;
   Point lineStart;   // the first click of an arrow or a line
+  // A mark tool dragged across the board: putting the mark on (or taking it
+  // off, by the first point), and the last point done.
+  bool  painting = false;
+  bool  paintOn  = false;
+  Point paintedOn;
 
   uint64_t shownRevision = 0;
   bool     dirty         = true;

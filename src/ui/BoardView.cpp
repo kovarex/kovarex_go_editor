@@ -706,6 +706,16 @@ void BoardView::pressed(Point p, const agui::MouseEvent& event)
     return;
   }
   if (button != agui::MouseButton::LEFT) return;
+  // A mark tool paints: the first point decides whether the drag puts the
+  // mark on or takes it off, and every point it crosses gets the same.
+  if (const std::optional<Mark> mark = ToolMark(this->tool); mark && this->game) {
+    this->painting   = true;
+    this->paintOn    = !this->game->hasMark(p, *mark);
+    this->paintedOn  = p;
+    this->pressPoint = p;
+    this->game->setMark(p, *mark, this->paintOn, false);
+    return;
+  }
   this->pressPoint = p;
   this->dragTarget = p;
   this->dragging   = false;
@@ -715,6 +725,24 @@ void BoardView::dragged(Point p, const agui::MouseEvent& event)
 {
   if (this->drawingWith != agui::MouseButton::NONE) {
     if (p == this->drawingOn) this->drawTo(this->boardAt(p, event));
+    return;
+  }
+  if (this->painting) {
+    const Point target = this->pointAt(p, event);
+    const std::optional<Mark> mark = ToolMark(this->tool);
+    if (mark && target.valid() && target != this->paintedOn) {
+      // A fast drag skips points between frames: the straight line from the
+      // last one done gets them all.
+      const Point from = this->paintedOn;
+      const int   dx = std::abs(target.x - from.x), dy = std::abs(target.y - from.y);
+      const int   steps = std::max(dx, dy);
+      for (int i = 1; i <= steps; ++i) {
+        const Point q{ from.x + int(std::lround(double(target.x - from.x) * i / steps)),
+                       from.y + int(std::lround(double(target.y - from.y) * i / steps)) };
+        this->game->setMark(q, *mark, this->paintOn, true);
+      }
+      this->paintedOn = target;
+    }
     return;
   }
   if (!this->game || this->pressPoint != p) return;
@@ -749,6 +777,11 @@ void BoardView::released(Point p, const agui::MouseEvent& event)
     return;
   }
 
+  if (this->painting && event.getButton() == agui::MouseButton::LEFT) {
+    this->painting   = false;
+    this->pressPoint = {};
+    return;
+  }
   if (event.getButton() == agui::MouseButton::RIGHT) {
     // Released where it was pressed, like a click.
     if (this->pointAt(p, event) == p) this->rightClick(p);
