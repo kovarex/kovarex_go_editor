@@ -23,14 +23,16 @@ struct Contact {
   std::string key;       // the pair's room on it
 };
 
-// What the Online page was last set to: the name to go by in a shared game,
-// the port to host on, and where to join -- an address, and a room code when
-// that is a relay. And the people met there before.
+// What the Online page was last set to: the name to go by in a shared game;
+// the relay, and the invite code last joined with there; and, for going
+// without the relay, the port to host on and the address of an editor that
+// hosts. And the people met on the relay before.
 struct OnlineSetup {
   std::string name;
-  int         port = 27272;
-  std::string address = net::DEFAULT_RELAY;
-  std::string room;
+  std::string relay = net::DEFAULT_RELAY;
+  std::string room;  // an invite code
+  int         port = net::DEFAULT_PORT;
+  std::string address;
   // This editor's identity: made up the first time, then kept.
   std::string          identity;
   std::vector<Contact> contacts;

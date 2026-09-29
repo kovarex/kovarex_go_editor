@@ -20,7 +20,7 @@ namespace net {
 
 // Bumped whenever a message changes, so an old editor is told, rather than
 // misreading a new one.
-constexpr uint32_t PROTOCOL_VERSION = 2;
+constexpr uint32_t PROTOCOL_VERSION = 3;
 
 // The port a session listens on unless told otherwise: an editor hosting one,
 // or the relay.
@@ -57,6 +57,8 @@ enum class Type : uint8_t {
   Stroke,        // any -> hub -> the others: points drawn on the board
   Refused,       // hub -> client: why you can't join
   Pair,          // client -> hub -> one other: the key of a room for the two of them
+  Reachable,     // client -> relay: the pair keys whose other halves may come to where I am
+  Moved,         // relay -> client: the other of your pair is in a session now; ask for the key again
 };
 
 struct Participant {

@@ -5,18 +5,23 @@ the students all connect to the relay, and it passes the game between them.
 It is `relay/Relay.cpp` and the editor's own `src/net/` code, and needs
 nothing but a C++20 compiler.
 
-In the editor (Online page), the relay's address goes in *Address*, as
-`ws://host[:port][/path]`:
+On the editor's Online page:
 
-- joining with no *Room* opens a new room with the game in the editor, and
-  shows its code, such as `WJA8YC`;
-- the others join with the same address and that code.
+- *Start* opens a new session -- a room on the relay -- with the game in the
+  editor, and shows its invite code, such as `WJA8YC`, to give to someone
+  new; they come in with *Invite code* and *Join*.
+- Two people who met in a session are remembered by each other's editor,
+  with a long key of their own (20 letters, too many to guess), and listed
+  under *People you met*. *Connect* there goes, without any code, to the
+  session the other one is in -- each editor tells the relay which keys lead
+  to it, wherever it is. If they are in none, it waits in a room of the two
+  of them, and the relay sends it on as soon as the other one turns up in a
+  session.
+- The relay's address, `ws://kovarexgoeditor.com` unless changed, is under
+  *Other ways to connect*, with hosting and joining without a relay.
 
-Two people who met in a room are remembered by each other's editor, with a
-long room code of their own (20 letters, too many to guess). Next time, each
-picks the other under *People you met* on the Online page, and they meet in
-that room: the relay makes it for whichever of them comes first. It keeps
-no list of people or codes: those are only in the two editors' settings.
+The relay keeps no list of people or keys: those are only in the editors'
+settings, and it knows only who is where right now.
 
 A room nobody is in is kept for 30 minutes, game and all, so whoever lost
 their connection can come back to it. An address that tries ten wrong codes
@@ -65,8 +70,7 @@ the site's web server, as a *proxy*.
    - Target port: `27272`
 
 4. **Check it.** A browser gets *"WebSockets Only"* from NearlyFreeSpeech,
-   which means the proxy is there; the editor, joining `ws://kovarexgoeditor.com`
-   with no room code, opens a room.
+   which means the proxy is there; in the editor, *Start* opens a session.
 
 Updating it: `git pull` and build again in `/home/protected/kovarex_go_editor`,
 copy the new `go_relay` over the old one, and restart the daemon.

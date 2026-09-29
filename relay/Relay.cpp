@@ -20,6 +20,7 @@
 #include <net/Socket.hpp>
 #include <net/WebSocket.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -52,6 +53,8 @@ constexpr auto BUSY_TIME  = std::chrono::seconds(2);
 // codes are too many to guess, and more so at this pace.
 constexpr int  MAX_MISSES  = 10;
 constexpr auto MISS_WINDOW = std::chrono::minutes(10);
+// Pair keys one editor may say lead to it: people met, a generous number.
+constexpr uint32_t MAX_KEYS = 1000;
 
 void Log(const std::string& text)
 {
@@ -124,7 +127,8 @@ public:
       if (!room.hub->empty()) {
         room.emptySince = now;
       } else if (now - room.emptySince > EMPTY_ROOM_TIME) {
-        Log("room " + it->first + " closed");
+        Log("room " + Shown(it->first) + " closed");
+        this->forget(it->first);
         it = this->rooms.erase(it);
         continue;
       }
@@ -163,8 +167,14 @@ private:
     Misses&                 misses  = this->misses[address];
     if (now - misses.since > MISS_WINDOW) misses = { 0, now };
     if (misses.count >= MAX_MISSES) {
-      this->refuse(w, "Too many wrong room codes. Try again in a few minutes.");
+      this->refuse(w, "Too many wrong invite codes. Try again in a few minutes.");
       return;
+    }
+
+    // Someone coming with a pair's key goes to where the other of the pair
+    // is, if they are anywhere; if not, to the pair's own room, to wait.
+    if (code.size() == net::PAIR_KEY_LENGTH) {
+      if (const std::string* there = this->whereIs(code, identity)) code = *there;
     }
 
     const bool pair = code.size() == net::PAIR_KEY_LENGTH;
@@ -177,21 +187,80 @@ private:
         do code = net::RandomCode(net::ROOM_CODE_LENGTH);
         while (this->rooms.contains(code));
       }
-      this->rooms[code].hub = std::make_unique<net::Hub>(code);
+      this->open(code);
       Log("room " + Shown(code) + " opened by " + w.peer);
     }
     const auto it = this->rooms.find(code);
     if (it == this->rooms.end()) {
       ++misses.count;
-      this->refuse(w, "There is no room " + code + " on the relay.");
+      this->refuse(w, "No session has the invite code " + code + ".");
       return;
     }
     if (it->second.hub->size() >= MAX_MEMBERS) {
-      this->refuse(w, "The room is full.");
+      this->refuse(w, "That session is full.");
       return;
     }
     it->second.hub->admit(std::move(w.connection), name, identity);
     Log("room " + Shown(code) + ": " + w.peer + " came in, " + std::to_string(it->second.hub->size()) + " there");
+  }
+
+  void open(const std::string& code)
+  {
+    Room& room = this->rooms[code];
+    room.hub   = std::make_unique<net::Hub>(code);
+    room.hub->onOther = [this, code](uint32_t from, std::string_view message) { this->reachable(code, from, message); };
+  }
+
+  // Member `from` of room `code` says which pairs' keys lead to them.
+  void reachable(const std::string& code, uint32_t from, std::string_view message)
+  {
+    net::Reader in(message);
+    if (in.type() != net::Type::Reachable) return;
+    const auto room = this->rooms.find(code);
+    if (room == this->rooms.end()) return;
+    const net::Participant* who = room->second.hub->who(from);
+    if (!who || who->identity.empty()) return;
+    const uint32_t count = std::min(in.u32(), MAX_KEYS);
+    for (uint32_t i = 0; i < count; ++i) {
+      const std::string key = in.str();
+      if (!in.ok()) break;
+      if (key.size() != net::PAIR_KEY_LENGTH) continue;
+      this->found[key][who->identity] = { code, from };
+      // Whoever of the pair waits in the pair's own room goes to them now.
+      if (key == code) continue;
+      if (const auto waiting = this->rooms.find(key); waiting != this->rooms.end() && !waiting->second.hub->empty()) {
+        waiting->second.hub->tell(net::Writer(net::Type::Moved).bytes());
+      }
+    }
+  }
+
+  // The room where the one of pair `key` who isn't `identity` is, if they
+  // said they can be found there and still are.
+  const std::string* whereIs(const std::string& key, const std::string& identity)
+  {
+    const auto entries = this->found.find(key);
+    if (entries == this->found.end()) return nullptr;
+    for (auto it = entries->second.begin(); it != entries->second.end();) {
+      const auto& [theirs, where] = *it;
+      const auto room = this->rooms.find(where.room);
+      const net::Participant* there = room == this->rooms.end() ? nullptr : room->second.hub->who(where.member);
+      if (!there || there->identity != theirs) {
+        it = entries->second.erase(it);  // gone since
+        continue;
+      }
+      if (theirs != identity) return &where.room;
+      ++it;
+    }
+    return nullptr;
+  }
+
+  // Keys that lead to room `code`, when it closes.
+  void forget(const std::string& code)
+  {
+    for (auto it = this->found.begin(); it != this->found.end();) {
+      std::erase_if(it->second, [&code](const auto& entry) { return entry.second.room == code; });
+      it = it->second.empty() ? this->found.erase(it) : std::next(it);
+    }
   }
 
   // A pair's code is theirs alone, and stays out of the log.
@@ -209,6 +278,13 @@ private:
   std::vector<Waiting>           waiting;
   std::map<std::string, Room>    rooms;
   std::map<std::string, Misses>  misses;  // by address
+  // Where the people who have pairs can be found: by pair key, then by the
+  // identity of the one of the pair who is there.
+  struct Where {
+    std::string room;
+    uint32_t    member = 0;
+  };
+  std::map<std::string, std::map<std::string, Where>> found;
 };
 
 }  // namespace

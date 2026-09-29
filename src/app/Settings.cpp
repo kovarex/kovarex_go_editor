@@ -59,10 +59,13 @@ Settings Settings::load()
   s.newGame.black    = ini.getString("new-game", "black", s.newGame.black);
   s.newGame.white    = ini.getString("new-game", "white", s.newGame.white);
 
-  s.online.name    = ini.getString("online", "name", s.online.name);
-  s.online.port    = std::clamp(ini.getInt("online", "port", s.online.port), 1, 65535);
-  s.online.address = ini.getString("online", "address", s.online.address);
-  s.online.room    = ini.getString("online", "room", s.online.room);
+  s.online.name     = ini.getString("online", "name", s.online.name);
+  s.online.relay    = ini.getString("online", "relay", s.online.relay);
+  s.online.room     = ini.getString("online", "room", s.online.room);
+  s.online.port     = std::clamp(ini.getInt("online", "port", s.online.port), 1, 65535);
+  s.online.address  = ini.getString("online", "address", s.online.address);
+  // Once, the address was the relay's as well.
+  if (s.online.address.starts_with("ws://")) s.online.address.clear();
   s.online.identity = ini.getString("online", "identity", "");
   if (s.online.identity.empty()) s.online.identity = net::RandomCode(IDENTITY_LENGTH);
   // Each: the identity = the room key, the relay, and the name (which may
@@ -115,9 +118,10 @@ void Settings::save() const
   ini.set("new-game", "white", this->newGame.white);
 
   ini.set("online", "name", this->online.name);
+  ini.set("online", "relay", this->online.relay);
+  ini.set("online", "room", this->online.room);
   ini.setInt("online", "port", this->online.port);
   ini.set("online", "address", this->online.address);
-  ini.set("online", "room", this->online.room);
   ini.set("online", "identity", this->online.identity);
   for (const Contact& c : this->online.contacts) ini.set("contacts", c.identity, c.key + " " + c.relay + " " + c.name);
 

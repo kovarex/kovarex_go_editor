@@ -1,12 +1,16 @@
 // The Online page: sharing the game with other editors, so that everyone can
 // edit it and everyone sees the same position -- for teaching, mostly.
 //
-// Without a session it offers the people met on a relay before, to meet
-// again in a room of their own; hosting a session (others then join this
-// editor); and joining one. With one, it shows who is in it, each in the
-// colour their drawing on the board comes out in, and a way to leave. It
-// edits the OnlineSetup the settings keep, so the name and the addresses are
-// there next time; the rest is the App's to do.
+// It is made for the relay first. Without a session it offers the people met
+// there before, to join them without a code; starting a new session, whose
+// invite code brings in someone new; and joining one by its invite code.
+// Below, smaller, the other ways: another relay, or no relay at all -- this
+// editor hosting, or joining one that does. With a session, it shows who is
+// in it, each in the colour their drawing on the board comes out in, the
+// invite code to pass on, and a way to leave.
+//
+// It edits the OnlineSetup the settings keep, so the name and the addresses
+// are there next time; the rest is the App's to do.
 
 #pragma once
 
@@ -35,9 +39,19 @@ class Theme;
 
 class OnlinePage : public agui::GenericTargetable {
 public:
-  OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(size_t)> onConnect, std::function<void(size_t)> onForget,
-             std::function<void()> onHost, std::function<void()> onJoin,
-             std::function<void()> onLeave, std::function<void()> onBack);
+  // What the player asked for.
+  enum class Request {
+    Connect,     // join contact `index`: in their session, or in the room the two of you have
+    Forget,      // forget contact `index`
+    OpenRoom,    // a new session, in a new room on setup.relay
+    JoinRoom,    // the session whose invite code is setup.room, on setup.relay
+    Host,        // host a session on setup.port, without the relay
+    JoinDirect,  // join the editor hosting at setup.address
+    Leave,       // leave the session, or stop hosting it
+  };
+
+  OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(Request, size_t index)> onRequest,
+             std::function<void()> onBack);
 
   agui::Window& root() { return this->window; }
 
@@ -49,8 +63,10 @@ public:
   struct Status {
     bool                          active = false;  // hosting, joined, or joining
     std::string                   what;            // a line saying which, and where
+    std::string                   code;            // the invite code to pass on; empty if there is none
     std::vector<net::Participant> people;
     uint32_t                      self = 0;
+    bool operator==(const Status&) const = default;
   };
   // Cheap when nothing changed: called every frame while the page is up.
   void show(const Status& status);
@@ -63,23 +79,27 @@ private:
   OnlineSetup& setup;
   agui::Window window;
 
+  std::function<void(Request, size_t)> onRequest;
+
   agui::TextField*    name    = nullptr;
+  agui::TextField*    code    = nullptr;
+  agui::TextField*    relay   = nullptr;
   agui::TextField*    port    = nullptr;
   agui::TextField*    address = nullptr;
-  agui::TextField*    room    = nullptr;
   agui::Frame*        contactSection = nullptr;
   agui::VerticalFlow* contactList    = nullptr;
-  agui::Frame*        hostSection    = nullptr;
-  agui::Frame*        joinSection    = nullptr;
+  agui::Frame*        roomSection    = nullptr;
+  agui::Frame*        otherSection   = nullptr;
   agui::Frame*        sessionSection = nullptr;
-  agui::Label*        state   = nullptr;
-  agui::VerticalFlow* people  = nullptr;
+  agui::Label*        state    = nullptr;
+  agui::Widget*       codeRow  = nullptr;  // the invite code, and Copy
+  agui::Label*        codeText = nullptr;
+  agui::Button*       copy     = nullptr;
+  agui::VerticalFlow* people   = nullptr;
 
-  Status shown;
-  bool   everShown = false;
-
-  std::function<void(size_t)> onConnect, onForget;
-  std::vector<std::string>    listed;  // the contacts' names as the list shows them
+  Status                   shown;
+  bool                     everShown = false;
+  std::vector<std::string> listed;  // the contacts' names as the list shows them
 };
 
 }  // namespace ui

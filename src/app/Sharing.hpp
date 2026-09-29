@@ -68,6 +68,8 @@ private:
   void remember(const Game& game);
   void pairUp();
   void keep(const net::Participant& who, const std::string& key);
+  // Tells the relay the keys of the people met, so they find this editor.
+  void sayReachable();
 
   std::unique_ptr<net::Session> session;
   bool                          welcomed = false;  // the Welcome read: in, with the session's game
@@ -95,4 +97,7 @@ private:
   bool                  changedContacts = false;
   std::string           relay;   // the address joined, which is a relay if the room has a code
   std::vector<uint32_t> paired;  // participants already paired with, this session
+  std::string           joinedName, joinedIdentity;  // as joined with, to join again
+  bool                  announce = false;  // the people met should be told where this editor is
+  bool                  rejoin   = false;  // the relay said to join again
 };

@@ -38,7 +38,7 @@ public:
   // Someone connected, whose Hello asked for this room with this name and
   // identity. They are welcomed with the game as it is, and everyone told
   // they are here.
-  void admit(std::unique_ptr<WebSocket> connection, std::string name, std::string identity);
+  uint32_t admit(std::unique_ptr<WebSocket> connection, std::string name, std::string identity);
 
   // Reads what the connected members have said, and passes it on. True if
   // anything happened.
@@ -47,6 +47,14 @@ public:
   const std::string& room() const { return this->name; }
   bool               empty() const { return this->members.empty(); }
   size_t             size() const { return this->members.size(); }
+  // Member `id`, or null if they aren't here.
+  const Participant* who(uint32_t id) const;
+  // What is said to everyone here, from nobody in particular.
+  void               tell(std::string_view message) { this->broadcast(message); }
+
+  // Messages the hub doesn't deal with itself -- Reachable -- go here, with
+  // who said them: to the relay, which does.
+  std::function<void(uint32_t from, std::string_view message)> onOther;
 
 private:
   struct Member {

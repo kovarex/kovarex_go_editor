@@ -207,6 +207,9 @@ void Session::handle(std::string_view message)
     e.author  = in.u32();
     e.message = in.str();
     break;
+  case Type::Moved:
+    e.kind = Event::Kind::Moved;
+    break;
   case Type::Refused:
     this->end(in.str());
     return;
@@ -250,6 +253,14 @@ void Session::sendStroke(const StrokePart& stroke)
 void Session::sendPair(uint32_t to, const std::string& key)
 {
   this->send(Writer(Type::Pair).u32(to).str(key).bytes());
+}
+
+void Session::sendReachable(const std::vector<std::string>& keys)
+{
+  Writer w(Type::Reachable);
+  w.u32(uint32_t(keys.size()));
+  for (const std::string& key : keys) w.str(key);
+  this->send(w.bytes());
 }
 
 void Session::end(std::string why)

@@ -62,9 +62,9 @@ uint32_t Hub::addLocal(std::string who, std::string identity, std::function<void
   return this->add(std::move(who), std::move(identity), nullptr, std::move(deliver));
 }
 
-void Hub::admit(std::unique_ptr<WebSocket> connection, std::string who, std::string identity)
+uint32_t Hub::admit(std::unique_ptr<WebSocket> connection, std::string who, std::string identity)
 {
-  this->add(std::move(who), std::move(identity), std::move(connection), nullptr);
+  return this->add(std::move(who), std::move(identity), std::move(connection), nullptr);
 }
 
 void Hub::say(uint32_t member, std::string_view message)
@@ -98,6 +98,14 @@ Hub::Member* Hub::find(uint32_t id)
 {
   const auto it = std::find_if(this->members.begin(), this->members.end(), [id](const Member& m) { return m.who.id == id; });
   return it == this->members.end() ? nullptr : &*it;
+}
+
+const Participant* Hub::who(uint32_t id) const
+{
+  for (const Member& m : this->members) {
+    if (m.who.id == id) return &m.who;
+  }
+  return nullptr;
 }
 
 void Hub::route(uint32_t from, std::string_view message)
@@ -137,6 +145,7 @@ void Hub::route(uint32_t from, std::string_view message)
     break;
   }
   default:
+    if (this->onOther) this->onOther(from, message);
     break;
   }
 }

@@ -43,6 +43,7 @@ public:
       Stroke,        // `author` drew
       Participants,  // who is here changed
       Pair,          // `author` gave this editor a room key for the two of them: `message`
+      Moved,         // the relay says: the other of this pair room's pair is elsewhere; join again
       Ended,         // the session is over; `message` says why
     };
     Kind                     kind = Kind::Ended;
@@ -63,6 +64,9 @@ public:
   void sendStroke(const StrokePart& stroke);
   // To participant `to` only: a room key for the two of them.
   void sendPair(uint32_t to, const std::string& key);
+  // To the relay: the pair keys whose other halves may come to where this
+  // editor is.
+  void sendReachable(const std::vector<std::string>& keys);
 
   bool     isHost() const { return this->hub != nullptr; }
   bool     isJoined() const { return this->selfId != 0; }

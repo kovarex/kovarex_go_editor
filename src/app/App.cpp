@@ -242,37 +242,38 @@ void App::handlePages()
     this->settings.controls = pages.controls.draft();
     this->settings.save();
     break;
-  case ui::Pages::Action::HostSession: {
-    std::string error;
-    if (!this->sharing.host(this->settings.online.port, this->settings.online.name, this->settings.online.identity, &error)) {
-      this->gui.editor().message(error, false);
+  case ui::Pages::Action::Online: {
+    // The name, addresses and codes are kept for next time, whatever was asked.
+    OnlineSetup&       online = this->settings.online;
+    const std::string& name   = online.name;
+    const size_t       index  = pages.contact();
+    using Request             = ui::OnlinePage::Request;
+    switch (pages.onlineRequest()) {
+    case Request::Connect:
+      if (index < online.contacts.size()) {
+        const Contact& with = online.contacts[index];
+        this->sharing.join(with.relay, with.key, name, online.identity);
+      }
+      break;
+    case Request::Forget:
+      if (index < online.contacts.size()) online.contacts.erase(online.contacts.begin() + std::ptrdiff_t(index));
+      break;
+    case Request::OpenRoom:   this->sharing.join(online.relay, "", name, online.identity); break;
+    case Request::JoinRoom:   this->sharing.join(online.relay, online.room, name, online.identity); break;
+    case Request::JoinDirect: this->sharing.join(online.address, "", name, online.identity); break;
+    case Request::Host: {
+      std::string error;
+      if (!this->sharing.host(online.port, name, online.identity, &error)) this->gui.editor().message(error, false);
+      break;
     }
-    this->settings.save();  // the name and port, for next time
-    break;
-  }
-  case ui::Pages::Action::JoinSession:
-    this->sharing.join(this->settings.online.address, this->settings.online.room, this->settings.online.name,
-                       this->settings.online.identity);
+    case Request::Leave:
+      this->sharing.leave();
+      this->gui.editor().message("Left the session.");
+      break;
+    }
     this->settings.save();
     break;
-  case ui::Pages::Action::ConnectContact:
-    if (pages.contact() < this->settings.online.contacts.size()) {
-      const Contact& with = this->settings.online.contacts[pages.contact()];
-      this->sharing.join(with.relay, with.key, this->settings.online.name, this->settings.online.identity);
-      this->settings.save();
-    }
-    break;
-  case ui::Pages::Action::ForgetContact:
-    if (pages.contact() < this->settings.online.contacts.size()) {
-      auto& contacts = this->settings.online.contacts;
-      contacts.erase(contacts.begin() + std::ptrdiff_t(pages.contact()));
-      this->settings.save();
-    }
-    break;
-  case ui::Pages::Action::LeaveSession:
-    this->sharing.leave();
-    this->gui.editor().message("Left the session.");
-    break;
+  }
   case ui::Pages::Action::OpenProjectPage: {
     std::string error;
     if (!platform::OpenInBrowser(ui::PROJECT_URL, &error)) this->gui.editor().message(error, false);
@@ -493,10 +494,15 @@ void App::updateSharing()
         }
         status.what = "Hosting. Others join at " + (where.empty() ? std::string("this computer's address") : where) + ".";
       } else if (const Contact* with = this->sharing.pairRoom()) {
-        status.what = "In your own room with " + with->name + " on the relay.";
+        status.what = "In the room you share with " + with->name + ", on the relay.";
       } else if (s->isJoined()) {
-        status.what = s->room().empty() ? std::string("In the session.")
-                                        : "In room " + s->room() + " on the relay. Others join it with the same address and this code.";
+        if (s->room().empty()) {
+          status.what = "In the session.";
+        } else {
+          status.what = "On the relay. Someone new joins with the invite code; the people you met can connect to you "
+                        "without it.";
+          status.code = s->room();
+        }
       } else {
         status.what = "Connecting to " + this->sharing.address() + "...";
       }

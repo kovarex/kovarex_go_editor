@@ -17,7 +17,9 @@ void Sharing::join(const std::string& address, const std::string& room, const st
 {
   this->leave();
   this->session = net::Session::join(address, room, name, identity);
-  this->relay   = address;
+  this->relay          = address;
+  this->joinedName     = name;
+  this->joinedIdentity = identity;
 }
 
 void Sharing::leave()
@@ -42,6 +44,7 @@ void Sharing::update(Game& game)
   // must not replace it.
   if (this->welcomed) this->publish(game);
   this->receive(game);
+  if (this->session && this->welcomed && this->announce) this->sayReachable();
 }
 
 void Sharing::remember(const Game& game)
@@ -94,6 +97,7 @@ void Sharing::receive(Game& game)
     switch (e.kind) {
     case Kind::Joined:
       this->welcomed = true;
+      this->announce = true;
       this->known = this->session->participants();
       if (this->session->isHost()) {
         this->messages.push_back("Hosting: others can join now.");
@@ -106,7 +110,7 @@ void Sharing::receive(Game& game)
         } else if (const Contact* with = this->pairRoom()) {
           this->messages.push_back("In your room with " + with->name + ", waiting for them.");
         } else if (!this->session->room().empty()) {
-          this->messages.push_back("Opened room " + this->session->room() + " on the relay: give the others its code.");
+          this->messages.push_back("Session started. Its invite code is " + this->session->room() + ".");
         } else {
           this->messages.push_back("Joined the session.");
         }
@@ -174,11 +178,25 @@ void Sharing::receive(Game& game)
       }
       break;
 
+    case Kind::Moved:
+      // The one this editor waits for in the room of the two of them is in a
+      // session: the relay sends it there, asked again.
+      this->rejoin = true;
+      break;
+
     case Kind::Ended:
       this->messages.push_back(e.message.empty() ? std::string("The session ended.") : e.message);
       this->leave();
       return;
     }
+  }
+
+  if (this->rejoin) {
+    this->rejoin = false;
+    if (const Contact* with = this->pairRoom()) this->messages.push_back("Going to " + with->name + ", who is in a session.");
+    const std::string address = this->relay, room = this->session->room();
+    const std::string name = this->joinedName, identity = this->joinedIdentity;
+    this->join(address, room, name, identity);
   }
 }
 
@@ -262,4 +280,16 @@ void Sharing::keep(const net::Participant& who, const std::string& key)
     met->key  = key;
   }
   this->changedContacts = true;
+  this->announce        = true;
+}
+
+void Sharing::sayReachable()
+{
+  this->announce = false;
+  if (!this->contacts || this->session->room().empty()) return;
+  std::vector<std::string> keys;
+  for (const Contact& c : *this->contacts) {
+    if (c.relay == this->relay) keys.push_back(c.key);
+  }
+  if (!keys.empty()) this->session->sendReachable(keys);
 }
