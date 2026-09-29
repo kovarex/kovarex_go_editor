@@ -6,6 +6,9 @@
 #include <Agui/SystemClipboard.hpp>
 #include <Agui/UTF8.hpp>
 
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
 #include <charconv>
 #include <map>
@@ -752,10 +755,57 @@ void RaylibInput::pollInput()
   }
 }
 
+namespace {
+
+// The text cursor. Windows' own inverts what is under it, and over the text
+// boxes' middle grey that is the same grey: it vanishes. This one is white
+// with a black edge, seen on anything; made once, at the monitor's scale.
+GLFWcursor* IBeam()
+{
+  static GLFWcursor* made = nullptr;
+  static bool        tried = false;
+  if (tried) return made;
+  tried = true;
+
+  // An I, in pixels at 100%: the stem, and a short bar across each end.
+  constexpr int W = 9, H = 21, MIDDLE = 4;
+  const auto white = [](int x, int y) {
+    if (x < 0 || y < 1 || x >= W || y > H - 2) return false;
+    return x == MIDDLE || ((y == 1 || y == H - 2) && x >= MIDDLE - 2 && x <= MIDDLE + 2);
+  };
+  const int scale = std::max(1, int(std::lround(GetWindowScaleDPI().y)));
+  std::vector<unsigned char> pixels(size_t(W * scale) * size_t(H * scale) * 4, 0);
+  for (int y = 0; y < H; ++y) {
+    for (int x = 0; x < W; ++x) {
+      bool edge = false;
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) edge = edge || white(x + dx, y + dy);
+      }
+      if (!edge) continue;
+      const unsigned char shade = white(x, y) ? 255 : 0;
+      for (int sy = 0; sy < scale; ++sy) {
+        for (int sx = 0; sx < scale; ++sx) {
+          unsigned char* p = &pixels[(size_t(y * scale + sy) * size_t(W * scale) + size_t(x * scale + sx)) * 4];
+          p[0] = p[1] = p[2] = shade;
+          p[3] = 255;
+        }
+      }
+    }
+  }
+  const GLFWimage image{ W * scale, H * scale, pixels.data() };
+  made = glfwCreateCursor(&image, W * scale / 2, H * scale / 2);
+  return made;
+}
+
+}  // namespace
+
 bool RaylibCursorProvider::setCursor(CursorEnum cursor)
 {
   switch (cursor) {
-  case EDIT_CURSOR:      SetMouseCursor(MOUSE_CURSOR_IBEAM); break;
+  case EDIT_CURSOR:
+    if (GLFWcursor* ibeam = IBeam()) glfwSetCursor(glfwGetCurrentContext(), ibeam);
+    else                             SetMouseCursor(MOUSE_CURSOR_IBEAM);
+    break;
   case LINK_CURSOR:      SetMouseCursor(MOUSE_CURSOR_POINTING_HAND); break;
   case MOVE_CURSOR:      SetMouseCursor(MOUSE_CURSOR_RESIZE_ALL); break;
   case RESIZE_N_CURSOR:
