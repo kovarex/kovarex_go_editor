@@ -61,6 +61,7 @@ constexpr ToolLook TOOLS[] = {
   { Tool::TerritoryBlack, Sprite::TerritoryBlack, "",    "Black's territory" },
   { Tool::TerritoryWhite, Sprite::TerritoryWhite, "",    "White's territory" },
   { Tool::Dim,            std::nullopt,           "Dim", "Dim points, to put them in the background" },
+  { Tool::Pen,            Sprite::Pen,            "",    "Draw on the board, to show something -- in a shared game, the others see it too. The lines fade away. The middle mouse button draws whatever the tool." },
 };
 
 // The drop-downs' items, and the SGF property each sets.
@@ -185,6 +186,7 @@ agui::Widget& EditorView::buildTopBar()
   this->title->style.setLeftPadding(16);
   bar << *this->title;
   bar << agui::pusher;
+  bar << this->commandButton("Online", Command::Online, "Share this game with other editors: all of you edit it, and see the same position", 80);
   bar << this->commandButton("Controls", Command::Controls, nullptr, 90);
   bar << this->commandButton("Settings", Command::Settings, nullptr, 90);
   bar << this->commandButton("About", Command::About, nullptr, 70);
@@ -309,7 +311,7 @@ agui::Widget& EditorView::buildTools()
   this->labelText->setToolTip("What the Text tool writes on the board");
   this->labelText->onTextEdit(this, [this] { this->setTool(Tool::Text); });
   labels << *this->labelText;
-  for (Tool t : { Tool::Arrow, Tool::Line }) labels << this->toolButton(t);
+  for (Tool t : { Tool::Arrow, Tool::Line, Tool::Pen }) labels << this->toolButton(t);
   // Turning and mirroring the board, beside the marks: two rows of two, so
   // the panel grows no taller for them.
   agui::HorizontalFlow& turns = row(4);

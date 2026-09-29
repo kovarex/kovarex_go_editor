@@ -481,6 +481,17 @@ void Paint(Sprite sprite, ::Image& sheet)
     c.copyTo(sheet, int(sprite));
     break;
   }
+  case Sprite::Pen: {
+    // A pencil, point down and to the left: its body, a gap, and the point.
+    Canvas c(dark);
+    Filled(c, dark, [](float x, float y) { return Segment(x, y, -0.12f, 0.12f, 0.55f, -0.55f) - 0.17f; });
+    Filled(c, dark, [](float x, float y) {
+      constexpr float S = 0.707f * 0.17f;  // half the body's width, across it
+      return TriangleFill(x, y, -0.62f, 0.62f, -0.24f + S, 0.24f + S, -0.24f - S, 0.24f - S);
+    });
+    c.copyTo(sheet, int(sprite));
+    break;
+  }
   case Sprite::Count:
     break;
   }

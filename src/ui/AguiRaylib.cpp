@@ -4,6 +4,7 @@
 #include <Agui/MouseInput.hpp>
 #include <Agui/ResizableText.hpp>
 #include <Agui/SystemClipboard.hpp>
+#include <Agui/UTF8.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -283,6 +284,20 @@ int RaylibFont::getSubstringWidth(std::string_view text, const agui::RichTextDat
                                   agui::RichTextSetting setting, double scale) const
 {
   return this->getTextWidth(text, setting, scale);
+}
+
+int RaylibFont::getStringIndexFromPosition(std::string_view text, int x, agui::RichTextSetting setting) const
+{
+  // The character boundary nearest to `x`.
+  const int length = int(agui::UTF8::length(text));
+  int       last   = 0;
+  for (int i = 0; i <= length; ++i) {
+    const int width = this->getTextWidth(agui::UTF8::subStr(text, 0, i), setting);
+    if (width >= x) return (i == 0 || (last + width) / 2 < x) ? i : i - 1;
+    last = width;
+  }
+  // Past the end: after the last character, but not after a line break.
+  return !text.empty() && text.back() == '\n' ? length - 1 : length;
 }
 
 size_t RaylibFont::getWrapIndex(std::string_view text, int width, double scale) const

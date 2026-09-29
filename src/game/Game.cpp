@@ -327,6 +327,11 @@ void Game::goTo(sgf::Node& node)
   this->touched(false);
 }
 
+void Game::goToPath(const std::vector<int>& path)
+{
+  this->goTo(*this->nodeAt(path));
+}
+
 bool Game::goToStone(Point p)
 {
   const Position& now = this->position();
@@ -669,6 +674,20 @@ Outcome Game::transform(BoardTransform how)
   case BoardTransform::FlipVertical:   return Outcome::Done("Flipped the board vertically.");
   }
   return Outcome::Done();
+}
+
+// ---------------------------------------------------------------- sharing
+
+void Game::replace(sgf::Collection file, const std::vector<int>& path)
+{
+  if (file.games.empty()) return;
+  this->beginEdit();
+  this->tree = std::move(file);
+  std::tie(this->w, this->h) = BoardSize(this->root());
+  // The old nodes are gone, and the map would only point at their ghosts.
+  this->lastVisited.clear();
+  this->cursor = this->nodeAt(path);
+  this->remember(*this->cursor);
 }
 
 // ---------------------------------------------------------------- the clipboard

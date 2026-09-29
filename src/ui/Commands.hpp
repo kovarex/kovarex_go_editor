@@ -23,6 +23,7 @@ enum class Tool {
   TerritoryBlack,
   TerritoryWhite,
   Dim,
+  Pen,             // draws on the board, to show something: not part of the game
   Count
 };
 
@@ -65,6 +66,7 @@ enum class Command {
   Settings,
   Controls,
   About,
+  Online,  // the Online page: sharing the game with other editors
 
   // Opens the search of the page that is up, or puts the caret back in it.
   FocusSearch,

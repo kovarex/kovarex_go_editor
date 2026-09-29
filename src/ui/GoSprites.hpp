@@ -59,6 +59,7 @@ enum class Sprite {
   RotateRight,
   FlipHorizontal,
   FlipVertical,
+  Pen,  // the Pen tool: a pencil
   Count
 };
 

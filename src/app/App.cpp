@@ -116,6 +116,7 @@ void App::frame()
   this->handlePages();
   this->handleDroppedFiles();
   this->handleClose();
+  this->updateSharing();
   this->updateTitle();
 
   BeginDrawing();
@@ -157,6 +158,10 @@ void App::handle(Command command)
     break;
   case Command::AiSensei:
     this->sendToAiSensei();
+    break;
+  case Command::Online:
+    pages.online.refresh();
+    pages.open(ui::Pages::Page::Online);
     break;
   case Command::About:
     pages.open(ui::Pages::Page::About);
@@ -234,6 +239,20 @@ void App::handlePages()
   case ui::Pages::Action::SaveControls:
     this->settings.controls = pages.controls.draft();
     this->settings.save();
+    break;
+  case ui::Pages::Action::HostSession: {
+    std::string error;
+    if (!this->sharing.host(this->settings.online.port, this->settings.online.name, &error)) this->gui.editor().message(error, false);
+    this->settings.save();  // the name and port, for next time
+    break;
+  }
+  case ui::Pages::Action::JoinSession:
+    this->sharing.join(this->settings.online.address, this->settings.online.room, this->settings.online.name);
+    this->settings.save();
+    break;
+  case ui::Pages::Action::LeaveSession:
+    this->sharing.leave();
+    this->gui.editor().message("Left the session.");
     break;
   case ui::Pages::Action::OpenProjectPage: {
     std::string error;
@@ -416,6 +435,44 @@ std::filesystem::path App::folder() const
 }
 
 // ---------------------------------------------------------------- the window
+
+void App::updateSharing()
+{
+  ui::EditorView& editor = this->gui.editor();
+  // Drawn here: to the others. (Without a session the lines are only here.)
+  for (const net::StrokePart& part : editor.takeStrokes()) this->sharing.sendStroke(part);
+  if (this->game) this->sharing.update(*this->game);
+  for (const net::Session::Event& e : this->sharing.takeStrokes()) {
+    editor.addStroke(e.author, this->sharing.colourOf(e.author), e.stroke);
+  }
+  editor.setOwnColour(this->sharing.ownColour());
+  for (const std::string& message : this->sharing.takeMessages()) editor.message(message);
+
+  // The Online page, while it is up, shows the session as it is.
+  if (this->gui.pages().current() == ui::Pages::Page::Online) {
+    ui::OnlinePage::Status status;
+    if (const net::Session* s = this->sharing.current()) {
+      status.active = true;
+      status.people = s->participants();
+      status.self   = s->self();
+      if (s->isHost()) {
+        std::string where;
+        for (const std::string& address : this->sharing.addresses()) {
+          if (!where.empty()) where += " or ";
+          const std::string host = address.find(':') != std::string::npos ? "[" + address + "]" : address;
+          where += s->port() == net::DEFAULT_PORT ? host : host + ":" + std::to_string(s->port());
+        }
+        status.what = "Hosting. Others join at " + (where.empty() ? std::string("this computer's address") : where) + ".";
+      } else if (s->isJoined()) {
+        status.what = s->room().empty() ? std::string("In the session.")
+                                        : "In room " + s->room() + " on the relay. Others join it with the same address and this code.";
+      } else {
+        status.what = "Connecting to " + this->settings.online.address + "...";
+      }
+    }
+    this->gui.pages().online.show(status);
+  }
+}
 
 void App::updateTitle()
 {

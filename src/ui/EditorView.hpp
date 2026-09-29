@@ -55,6 +55,12 @@ public:
   void setBindings(const Bindings& bindings);
   // Move numbers on the game tree's stones.
   void setTreeNumbers(bool on);
+  // Drawing on the board (see BoardView): what was drawn here, what others
+  // drew, and the colour lines drawn here come out in.
+  std::vector<net::StrokePart> takeStrokes() { return this->board.takeStrokes(); }
+  void addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part) { this->board.addStroke(author, colour, part); }
+  void setOwnColour(uint8_t colour) { this->board.setOwnColour(colour); }
+
   // The interface scale, in percent, which the board lines its grid up with.
   void setScale(int percent) { this->board.setScale(percent); }
 

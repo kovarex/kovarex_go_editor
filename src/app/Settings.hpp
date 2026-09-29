@@ -11,6 +11,16 @@
 #include <filesystem>
 #include <string>
 
+// What the Online page was last set to: the name to go by in a shared game,
+// the port to host on, and where to join -- an address, and a room code when
+// that is a relay.
+struct OnlineSetup {
+  std::string name;
+  int         port = 27272;
+  std::string address;
+  std::string room;
+};
+
 struct Settings {
   struct Graphics {
     bool windowedFullscreen = false;  // a borderless window over the whole monitor
@@ -74,6 +84,8 @@ struct Settings {
 
   // What the New game page is set up for: the last game started.
   GameSetup newGame;
+
+  OnlineSetup online;
 
   // Where the file browser was last, as UTF-8.
   std::string folder;

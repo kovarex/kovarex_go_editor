@@ -20,6 +20,7 @@
 #pragma once
 
 #include <game/Game.hpp>
+#include <net/Protocol.hpp>
 #include <ui/Commands.hpp>
 #include <ui/GoSprites.hpp>
 
@@ -103,6 +104,30 @@ private:
   float             thickness = 2.0f;
 };
 
+// The colour of participant colour `index` -- theirs on everyone's screen:
+// the lines they draw, and their name in the session's list.
+agui::Color ParticipantColour(uint8_t index);
+
+// Lines drawn freehand over the board -- to show something, not part of the
+// game -- each in its drawer's colour, fading away a while after it is done.
+class StrokeLayer : public agui::Widget {
+public:
+  struct Stroke {
+    std::vector<agui::Point> points;
+    agui::Color              colour;
+    float                    opacity = 1.0f;
+  };
+  StrokeLayer();
+  void setStrokes(std::vector<Stroke> strokes, float thickness);
+
+protected:
+  void paintComponent(const agui::PaintEvent& paintEvent, const agui::Point& absolutePosition) override;
+
+private:
+  std::vector<Stroke> strokes;
+  float               thickness = 3.0f;
+};
+
 class BoardView : public agui::GenericTargetable {
 public:
   struct Options {
@@ -145,6 +170,17 @@ public:
 
   // While a page is up, the board shows but takes no clicks.
   void setInteractive(bool value);
+
+  // Drawing on the board: with the middle mouse button whatever the tool, or
+  // the left one with the Pen tool. Lines are in board coordinates -- a
+  // point's centre at whole numbers, (0, 0) the top left one -- so they land
+  // in the same place on every screen.
+  // What was drawn here since the last call, for the others in a session.
+  std::vector<net::StrokePart> takeStrokes();
+  // A line someone else draws, `part` at a time, in their colour.
+  void addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part);
+  // The colour lines drawn here are in.
+  void setOwnColour(uint8_t colour) { this->ownColour = colour; }
 
   // What a click came to, for the status line; and the mouse wheel, as moves
   // to step (negative is back).
@@ -205,6 +241,29 @@ private:
 
   uint64_t shownRevision = 0;
   bool     dirty         = true;
+
+  // Drawing.
+  struct Drawn {
+    uint32_t                          author = 0;  // 0 for this editor
+    uint32_t                          id     = 0;
+    uint8_t                           colour = 0;
+    std::vector<std::pair<float, float>> points;
+    bool                              finished = false;
+    double                            finishedAt = 0;  // seconds, on the clock below
+  };
+  // Where the mouse is, in board coordinates, from an event on point `on`.
+  std::pair<float, float> boardAt(Point on, const agui::MouseEvent& event) const;
+  void                    drawTo(std::pair<float, float> at);
+  void                    updateStrokes();
+  static double           Now();
+
+  StrokeLayer*                  strokeLayer = nullptr;
+  std::vector<Drawn>            sketches;
+  std::vector<net::StrokePart>  outgoing;
+  agui::MouseButton             drawingWith = agui::MouseButton::NONE;
+  Point                         drawingOn;  // the point the drawing button went down on
+  uint32_t                      nextStroke  = 1;
+  uint8_t                       ownColour   = 0;
 };
 
 }  // namespace ui

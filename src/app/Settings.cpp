@@ -55,6 +55,11 @@ Settings Settings::load()
   s.newGame.black    = ini.getString("new-game", "black", s.newGame.black);
   s.newGame.white    = ini.getString("new-game", "white", s.newGame.white);
 
+  s.online.name    = ini.getString("online", "name", s.online.name);
+  s.online.port    = std::clamp(ini.getInt("online", "port", s.online.port), 1, 65535);
+  s.online.address = ini.getString("online", "address", s.online.address);
+  s.online.room    = ini.getString("online", "room", s.online.room);
+
   s.folder = ini.getString("files", "folder", s.folder);
 
   // A control missing from the file keeps its default; one written with
@@ -94,6 +99,11 @@ void Settings::save() const
   ini.set("new-game", "komi", this->newGame.komi);
   ini.set("new-game", "black", this->newGame.black);
   ini.set("new-game", "white", this->newGame.white);
+
+  ini.set("online", "name", this->online.name);
+  ini.setInt("online", "port", this->online.port);
+  ini.set("online", "address", this->online.address);
+  ini.set("online", "room", this->online.room);
 
   ini.set("files", "folder", this->folder);
 
