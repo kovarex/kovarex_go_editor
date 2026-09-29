@@ -777,28 +777,47 @@ sgf::Node& Game::setupNode()
 
 Outcome Game::setupStone(Point p, Stone color)
 {
-  const Position& now = this->position();
+  const Position now = this->position();  // a copy: the edit changes the position
   if (!now.inside(p)) return Outcome::Fail("That point is off the board.");
-  const Stone            there  = now.at(p);
-  const sgf::Node* const origin = now.origin(p);
+  const Stone there = now.at(p);
   if (color == Stone::None && there == Stone::None) return Outcome::Done();
+
+  // The position the edit makes. A stone of the colour already there comes
+  // off; any other goes down as a move there would, so a group it leaves
+  // without a liberty is taken -- a position can't have one.
+  const bool clearing = color == Stone::None || there == color;
+  Position   after    = now;
+  if (clearing) after.set(p, Stone::None);
+  else          after.play(p, color);
+  // A stone that would itself be taken changes nothing: no edit to undo.
+  bool differs = false;
+  for (int y = 0; y < now.height() && !differs; ++y) {
+    for (int x = 0; x < now.width() && !differs; ++x) differs = after.at({ x, y }) != now.at({ x, y });
+  }
+  if (!differs) return Outcome::Fail("That stone would have no liberty: it would be taken at once.");
 
   this->beginEdit();
   sgf::Node& node = this->setupNode();
   for (const char* id : { "AB", "AW", "AE" }) this->expandList(node, id);
 
-  const std::string v = ToSgf(p);
-  node.removeValue("AB", v);
-  node.removeValue("AW", v);
-  node.removeValue("AE", v);
-
-  const bool clearing = color == Stone::None || there == color;
-  if (!clearing) {
-    node.addValue(color == Stone::Black ? "AB" : "AW", v);
-  } else if (there != Stone::None && origin != &node) {
-    // Taking out of this node's own list was enough for a stone it set up;
-    // one that was there before this node needs clearing.
-    node.addValue("AE", v);
+  // Every point that differs, written into the set-up node.
+  for (int y = 0; y < now.height(); ++y) {
+    for (int x = 0; x < now.width(); ++x) {
+      const Point q{ x, y };
+      const Stone s = after.at(q);
+      if (s == now.at(q)) continue;
+      const std::string v = ToSgf(q);
+      node.removeValue("AB", v);
+      node.removeValue("AW", v);
+      node.removeValue("AE", v);
+      if (s != Stone::None) {
+        node.addValue(s == Stone::Black ? "AB" : "AW", v);
+      } else if (now.origin(q) != &node) {
+        // Taking out of this node's own list was enough for a stone it set
+        // up; one that was there before this node needs clearing.
+        node.addValue("AE", v);
+      }
+    }
   }
   this->touched(true);
   return Outcome::Done();

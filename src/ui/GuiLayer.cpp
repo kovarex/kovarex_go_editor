@@ -83,7 +83,9 @@ void GuiLayer::update(float dt)
   }
   // Shift shows tooltips at once, whatever the delay -- even when it is
   // "never". Agui takes back the ones it showed when Shift is let go of.
-  this->gui->setInstantTooltip(IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT));
+  const bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+  this->gui->setInstantTooltip(shift);
+  this->editorView->setShift(shift);
   this->gui->logic(true);
 
   // The editor is still there behind a page, dimmed, but nothing on it can be

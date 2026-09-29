@@ -582,8 +582,7 @@ void BoardView::refresh()
              position.at(this->hover) == Stone::None) {
     std::optional<Stone> preview;
     if (this->tool == Tool::Play)  preview = this->game->toPlay();
-    if (this->tool == Tool::Black) preview = Stone::Black;
-    if (this->tool == Tool::White) preview = Stone::White;
+    if (this->tool == Tool::Setup) preview = this->shiftHeld ? Stone::White : Stone::Black;
     if (preview) {
       ghosts[at(this->hover)]       = preview;
       ghostOpacity[at(this->hover)] = GHOST;
@@ -706,7 +705,7 @@ void BoardView::dragged(Point p, const agui::MouseEvent& event)
   }
   if (!this->game || this->pressPoint != p) return;
   // Only stones move, and only with the tools that put stones down.
-  const bool stoneTool = this->tool == Tool::Play || this->tool == Tool::Black || this->tool == Tool::White;
+  const bool stoneTool = this->tool == Tool::Play || this->tool == Tool::Setup;
   if (!stoneTool || this->game->position().at(p) == Stone::None) return;
 
   const Point target = this->pointAt(p, event);
@@ -772,8 +771,7 @@ void BoardView::click(Point p, bool ctrl, bool shift)
       this->report(this->game->play(p));
     }
     return;
-  case Tool::Black: this->report(this->game->setupStone(p, Stone::Black)); return;
-  case Tool::White: this->report(this->game->setupStone(p, Stone::White)); return;
+  case Tool::Setup: this->report(this->game->setupStone(p, shift ? Stone::White : Stone::Black)); return;
   case Tool::Erase: this->report(this->game->setupStone(p, Stone::None)); return;
 
   case Tool::Letter:
@@ -817,7 +815,7 @@ void BoardView::click(Point p, bool ctrl, bool shift)
 
 void BoardView::rightClick(Point p)
 {
-  if (this->tool == Tool::Play || this->tool == Tool::Black || this->tool == Tool::White) {
+  if (this->tool == Tool::Play || this->tool == Tool::Setup) {
     // To the move that played this stone.
     if (this->game->goToStone(p) && Game::MoveColor(this->game->current()) == Stone::None) {
       this->report(Outcome::Done("That stone was set up here, not played."));

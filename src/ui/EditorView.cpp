@@ -46,11 +46,10 @@ struct ToolLook {
   const char*           tip;
 };
 
-// The tool bar, in order: two rows of nine.
+// The tools, and how their buttons look.
 constexpr ToolLook TOOLS[] = {
-  { Tool::Play,           std::nullopt,           "",    "Play moves\nCtrl+click inserts a move after this one; drag a stone to move it, however long ago it was played." },
-  { Tool::Black,          Sprite::BlackStone,     "",    "Set up black stones" },
-  { Tool::White,          Sprite::WhiteStone,     "",    "Set up white stones" },
+  { Tool::Play,           Sprite::BlackStone,     "",    "Play moves\nCtrl+click inserts a move after this one; drag a stone to move it, however long ago it was played." },
+  { Tool::Setup,          std::nullopt,           "",    "Set up stones: a click adds a black one, Shift+click a white one. A click on a stone of that colour takes it off." },
   { Tool::Erase,          std::nullopt,           "Clr", "Clear set-up stones" },
   { Tool::Triangle,       Sprite::TriangleDark,   "",    "Triangle" },
   { Tool::Square,         Sprite::SquareDark,     "",    "Square" },
@@ -250,7 +249,7 @@ agui::Button& EditorView::toolButton(Tool which)
     agui::ImageWidget& icon = Icon(this->sprites, *look.icon, ICON);
     button << icon;
     this->icons.push_back({ &button, &icon, at, at });
-  } else if (which == Tool::Play) {
+  } else if (which == Tool::Setup) {
     // Both colours, one after the other, the pair centred together.
     constexpr int STONE = 16, STEP = 8;
     const int     from  = (TOOL_PX - STONE - STEP) / 2;
@@ -292,7 +291,7 @@ agui::Widget& EditorView::buildTools()
   agui::VerticalFlow& rows = column(4);
 
   agui::HorizontalFlow& stones = row(4);
-  for (Tool t : { Tool::Play, Tool::Black, Tool::White, Tool::Erase }) stones << this->toolButton(t);
+  for (Tool t : { Tool::Play, Tool::Setup, Tool::Erase }) stones << this->toolButton(t);
   agui::HorizontalFlow& territory = row(4);
   for (Tool t : { Tool::TerritoryBlack, Tool::TerritoryWhite }) territory << this->toolButton(t);
   agui::HorizontalFlow& top = row(4);

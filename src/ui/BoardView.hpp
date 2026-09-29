@@ -184,6 +184,12 @@ public:
   void addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part);
   // The colour lines drawn here are in.
   void setOwnColour(uint8_t colour) { this->ownColour = colour; }
+  // Whether Shift is held: the set-up stones tool then puts down white.
+  void setShift(bool held)
+  {
+    if (held != this->shiftHeld) this->dirty = true;
+    this->shiftHeld = held;
+  }
 
   // What a click came to, for the status line; and the mouse wheel, as moves
   // to step (negative is back).
@@ -270,6 +276,7 @@ private:
   Point                         drawingOn;  // the point the drawing button went down on
   uint32_t                      nextStroke  = 1;
   uint8_t                       ownColour   = 0;
+  bool                          shiftHeld   = false;
 };
 
 }  // namespace ui

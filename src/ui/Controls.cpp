@@ -118,8 +118,7 @@ const std::vector<Control>& AllControls()
     { "flip-vertical",   Command::FlipVertical,   "Flip vertically", "The whole game, every move and mark in it.", S::Editing, false, NONE },
 
     { "tool-play",            ToolCommand(Tool::Play),           "Play moves",          nullptr, S::Tools, false, Key(KEY_Q) },
-    { "tool-black",           ToolCommand(Tool::Black),          "Black stones",        "Set-up stones, not moves.", S::Tools, false, Key(KEY_B) },
-    { "tool-white",           ToolCommand(Tool::White),          "White stones",        "Set-up stones, not moves.", S::Tools, false, Key(KEY_W) },
+    { "tool-setup",           ToolCommand(Tool::Setup),          "Set-up stones",       "Stones, not moves: black, or white with Shift.", S::Tools, false, Key(KEY_B) },
     { "tool-erase",           ToolCommand(Tool::Erase),          "Clear set-up stones", nullptr, S::Tools, false, Key(KEY_E) },
     { "tool-territory-black", ToolCommand(Tool::TerritoryBlack), "Black's territory",   nullptr, S::Tools, false, NONE },
     { "tool-territory-white", ToolCommand(Tool::TerritoryWhite), "White's territory",   nullptr, S::Tools, false, NONE },

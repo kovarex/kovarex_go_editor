@@ -7,8 +7,7 @@
 // What a click on the board does.
 enum class Tool {
   Play,            // moves, each side in turn
-  Black,           // set-up stones
-  White,
+  Setup,           // set-up stones: black, or white with Shift
   Erase,           // clears set-up stones
   Triangle,
   Square,

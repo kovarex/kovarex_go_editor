@@ -92,6 +92,7 @@ public:
   // Would the move take nothing and leave its own group without a liberty?
   bool isSuicide(Point p, Stone color) const;
 
+
   // The point a ko forbids retaking right now, if the last move was a single
   // stone capturing a single stone. Invalid when there is none.
   Point koPoint() const { return this->ko; }

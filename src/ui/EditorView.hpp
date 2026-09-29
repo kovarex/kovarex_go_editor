@@ -65,6 +65,7 @@ public:
   std::vector<net::StrokePart> takeStrokes() { return this->board.takeStrokes(); }
   void addStroke(uint32_t author, uint8_t colour, const net::StrokePart& part) { this->board.addStroke(author, colour, part); }
   void setOwnColour(uint8_t colour) { this->board.setOwnColour(colour); }
+  void setShift(bool held) { this->board.setShift(held); }
 
   // Whether this editor shares its game, as the panel's first box shows it:
   // offline, connecting, hosting or joined, and who else is there.
