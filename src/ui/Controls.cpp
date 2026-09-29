@@ -127,7 +127,6 @@ const std::vector<Control>& AllControls()
     { "tool-circle",          ToolCommand(Tool::Circle),         "Circle",              nullptr, S::Tools, false, Key(KEY_C) },
     { "tool-cross",           ToolCommand(Tool::Cross),          "Cross",               nullptr, S::Tools, false, Key(KEY_X) },
     { "tool-selected",        ToolCommand(Tool::Selected),       "Selected points",     nullptr, S::Tools, false, NONE },
-    { "tool-dim",             ToolCommand(Tool::Dim),            "Dim points",          nullptr, S::Tools, false, NONE },
     { "tool-pen",             ToolCommand(Tool::Pen),            "Pen",                 "Draws on the board, to show something. The middle mouse button, or Alt with the left one, draws with any tool.", S::Tools, false, Key(KEY_P) },
     { "tool-letter",          ToolCommand(Tool::Letter),         "Letters",             nullptr, S::Tools, false, Key(KEY_L) },
     { "tool-number",          ToolCommand(Tool::Number),         "Numbers",             nullptr, S::Tools, false, Key(KEY_N) },

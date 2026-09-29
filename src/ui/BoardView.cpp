@@ -65,7 +65,6 @@ std::optional<Mark> ToolMark(Tool tool)
   case Tool::Selected:       return Mark::Selected;
   case Tool::TerritoryBlack: return Mark::TerritoryBlack;
   case Tool::TerritoryWhite: return Mark::TerritoryWhite;
-  case Tool::Dim:            return Mark::Dim;
   default:                   return std::nullopt;
   }
 }
@@ -641,7 +640,7 @@ void BoardView::refresh()
       } else if (p == last && label.empty()) {
         // A ring on the stone, as CGoban has it: dark on white, light on black.
         markSprite = MarkSprite(Mark::Circle, stone);
-      } else if (p == this->hover && !this->drawing() && toolMark && *toolMark != Mark::Dim && label.empty()) {
+      } else if (p == this->hover && !this->drawing() && toolMark && label.empty()) {
         markSprite  = MarkSprite(*toolMark, stone);
         markOpacity = GHOST;
       }

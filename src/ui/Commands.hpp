@@ -21,7 +21,6 @@ enum class Tool {
   Line,
   TerritoryBlack,
   TerritoryWhite,
-  Dim,
   Pen,             // draws on the board, to show something: not part of the game
   Count
 };

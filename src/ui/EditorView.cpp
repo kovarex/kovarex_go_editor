@@ -63,7 +63,6 @@ constexpr ToolLook TOOLS[] = {
   { Tool::Line,           std::nullopt,           "--",  "Line: click one end, then the other" },
   { Tool::TerritoryBlack, Sprite::TerritoryBlack, "",    "Black's territory" },
   { Tool::TerritoryWhite, Sprite::TerritoryWhite, "",    "White's territory" },
-  { Tool::Dim,            std::nullopt,           "Dim", "Dim points, to put them in the background" },
   { Tool::Pen,            Sprite::Pen,            "",    "Draw on the board, to show something -- in a shared game, the others see it too. The lines fade away. The middle mouse button, or Alt with the left one, draws whatever the tool." },
 };
 
@@ -301,7 +300,7 @@ agui::Widget& EditorView::buildTools()
   rows << top;
 
   agui::HorizontalFlow& shapes = row(4);
-  for (Tool t : { Tool::Triangle, Tool::Square, Tool::Circle, Tool::Cross, Tool::Selected, Tool::Dim }) {
+  for (Tool t : { Tool::Triangle, Tool::Square, Tool::Circle, Tool::Cross, Tool::Selected }) {
     shapes << this->toolButton(t);
   }
   agui::HorizontalFlow& labels = row(4);

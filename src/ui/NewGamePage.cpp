@@ -8,11 +8,13 @@
 #include <Agui/Widget/DropDown.hpp>
 #include <Agui/Widget/Frame.hpp>
 #include <Agui/Widget/ImageWidget.hpp>
+#include <Agui/Widget/Label.hpp>
 #include <Agui/Widget/Slider.hpp>
 #include <Agui/Widget/TextField.hpp>
 
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace ui {
 
@@ -88,24 +90,42 @@ NewGamePage::NewGamePage(Theme& theme, GameSetup& setup, std::function<void()> o
 
   content << agui::label("Game", &theme.headingLabel);
 
-  // A notch for each: none, and 2 to 9 stones -- one stone is no handicap.
+  // A notch for each: none, 1 -- no stones, only komi -- and 2 to 9 stones.
   this->handicap = &make<agui::Slider>(&theme.notchedSlider);
-  this->handicap->setMinMaxValues(0, 8);
+  this->handicap->setMinMaxValues(0, 9);
   this->handicap->setValueStep(1);
   this->handicap->setDiscreteSlider();
   this->handicap->style.setMinimalWidth(SLIDER_W);
   this->handicapValue = &ValueLabel();
+  // As wide as the widest thing it can say, from the start, so the page
+  // keeps its size as the slider moves.
+  {
+    std::vector<std::string> says = { "none", "1 (no stones)" };
+    for (int i = 2; i <= 9; ++i) {
+      says.push_back(std::to_string(i));
+      says.push_back(std::to_string(i) + " (by hand)");
+    }
+    const std::string* widest = &says.front();
+    for (const std::string& text : says) {
+      if (agui::Label::getWidthToFit(&this->handicapValue->style, text) >
+          agui::Label::getWidthToFit(&this->handicapValue->style, *widest)) {
+        widest = &text;
+      }
+    }
+    this->handicapValue->setSizeToFit(*widest);
+  }
   this->handicap->onSliderMove(this, [this](double) {
     const int before     = this->setup.handicap;
-    const int notch      = SliderValue(*this->handicap);
-    this->setup.handicap = notch == 0 ? 0 : notch + 1;
+    this->setup.handicap = SliderValue(*this->handicap);
     // Komi follows the handicap, unless it was set by hand to something else.
-    if (before < 2 && this->setup.handicap >= 2 && (this->setup.komi == "6.5" || this->setup.komi == "7.5")) this->setup.komi = "0.5";
-    if (before >= 2 && this->setup.handicap < 2 && this->setup.komi == "0.5") this->setup.komi = "6.5";
+    if (before < 1 && this->setup.handicap >= 1 && (this->setup.komi == "6.5" || this->setup.komi == "7.5")) this->setup.komi = "0.5";
+    if (before >= 1 && this->setup.handicap < 1 && this->setup.komi == "0.5") this->setup.komi = "6.5";
     this->refresh();
   });
   // The tooltip on the caption, with Factorio's info mark after it.
-  const char* const handicapTip = "Black's stones set out before the game starts. White then plays first.";
+  const char* const handicapTip =
+      "Black's stones set out before the game starts. White then plays first.\n1 is no stones: Black plays first, "
+      "with komi only 0.5.\nBy hand: the board has no usual points for that many, so place the stones yourself.";
   agui::Label&       caption     = agui::label("Handicap");
   caption.setToolTip(handicapTip);
   agui::ImageWidget& info = make<agui::ImageWidget>(theme.infoIcon());
@@ -165,15 +185,16 @@ void NewGamePage::refresh()
   // Set without dispatching, so this doesn't come round again.
   this->width->setValue(this->setup.width);
   this->height->setValue(this->setup.height);
-  this->handicap->setValue(this->setup.handicap < 2 ? 0 : this->setup.handicap - 1);
+  this->handicap->setValue(this->setup.handicap);
   this->widthValue->setText(std::to_string(this->setup.width));
   this->heightValue->setText(std::to_string(this->setup.height));
 
   const bool placed = this->setup.handicap < 2 ||
                       !HandicapPoints(this->setup.handicap, this->setup.width, this->setup.height).empty();
-  this->handicapValue->setText(this->setup.handicap < 2 ? std::string("none")
-                               : placed               ? std::to_string(this->setup.handicap)
-                                                      : std::to_string(this->setup.handicap) + " (place them yourself)");
+  this->handicapValue->setText(this->setup.handicap == 0   ? std::string("none")
+                               : this->setup.handicap == 1 ? std::string("1 (no stones)")
+                               : placed                    ? std::to_string(this->setup.handicap)
+                                                           : std::to_string(this->setup.handicap) + " (by hand)");
 
   int preset = CUSTOM;
   for (int i = 0; i < CUSTOM; ++i) {
