@@ -448,6 +448,15 @@ void App::updateSharing()
   editor.setOwnColour(this->sharing.ownColour());
   for (const std::string& message : this->sharing.takeMessages()) editor.message(message);
 
+  ui::EditorView::Presence presence;
+  if (const net::Session* s = this->sharing.current()) {
+    using Mode      = ui::EditorView::Presence::Mode;
+    presence.mode   = s->isHost() ? Mode::Hosting : s->isJoined() ? Mode::Joined : Mode::Connecting;
+    presence.people = s->participants();
+    presence.self   = s->self();
+  }
+  editor.showPresence(presence);
+
   // The Online page, while it is up, shows the session as it is.
   if (this->gui.pages().current() == ui::Pages::Page::Online) {
     ui::OnlinePage::Status status;

@@ -39,6 +39,8 @@ struct Participant {
   uint32_t    id = 0;
   std::string name;
   uint8_t     colour = 0;  // an index into the palette every editor has
+
+  bool operator==(const Participant&) const = default;
 };
 
 // The game and where in it everyone is: the child indices from the root.
