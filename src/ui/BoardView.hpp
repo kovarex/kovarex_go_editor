@@ -195,6 +195,8 @@ private:
   void dragged(Point p, const agui::MouseEvent& event);
   void released(Point p, const agui::MouseEvent& event);
   void click(Point p, bool ctrl, bool shift);
+  // Whether a line is being drawn on the board just now.
+  bool drawing() const { return this->drawingWith != agui::MouseButton::NONE; }
   void rightClick(Point p);
   // The point under the mouse, from an event on the point it was pressed on:
   // everything after the press goes to that point, wherever the mouse is.

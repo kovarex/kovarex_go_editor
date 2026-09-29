@@ -570,7 +570,8 @@ void BoardView::refresh()
       position.at(this->dragTarget) == Stone::None) {
     ghosts[at(this->dragTarget)]       = position.at(this->pressPoint);
     ghostOpacity[at(this->dragTarget)] = GHOST;
-  } else if (this->hover.valid() && !this->dragging && position.inside(this->hover) && position.at(this->hover) == Stone::None) {
+  } else if (this->hover.valid() && !this->dragging && !this->drawing() && position.inside(this->hover) &&
+             position.at(this->hover) == Stone::None) {
     std::optional<Stone> preview;
     if (this->tool == Tool::Play)  preview = this->game->toPlay();
     if (this->tool == Tool::Black) preview = Stone::Black;
@@ -626,7 +627,7 @@ void BoardView::refresh()
       } else if (p == last && label.empty()) {
         // A ring on the stone, as CGoban has it: dark on white, light on black.
         markSprite = MarkSprite(Mark::Circle, stone);
-      } else if (p == this->hover && toolMark && *toolMark != Mark::Dim && label.empty()) {
+      } else if (p == this->hover && !this->drawing() && toolMark && *toolMark != Mark::Dim && label.empty()) {
         markSprite  = MarkSprite(*toolMark, stone);
         markOpacity = GHOST;
       }
@@ -668,11 +669,13 @@ void BoardView::pressed(Point p, const agui::MouseEvent& event)
   if (agui::Gui* gui = this->board.getGui()) {
     if (agui::Widget* focused = gui->getFocusedWidget(); focused && focused->isTextBox()) gui->clearFocus();
   }
-  // Drawing rather than editing: the middle button whatever the tool, or the
-  // left one with the Pen tool.
+  // Drawing rather than editing: the middle button, or the left one with Alt,
+  // whatever the tool; or the left one with the Pen tool.
   const agui::MouseButton button = event.getButton();
-  if (button == agui::MouseButton::MIDDLE || (button == agui::MouseButton::LEFT && this->tool == Tool::Pen)) {
+  const bool pen = this->tool == Tool::Pen || event.alt();
+  if (button == agui::MouseButton::MIDDLE || (button == agui::MouseButton::LEFT && pen)) {
     this->drawingWith = button;
+    this->dirty       = true;  // no preview of the tool under the pen
     this->drawingOn   = p;
     Drawn line;
     line.id     = this->nextStroke++;
@@ -712,6 +715,7 @@ void BoardView::released(Point p, const agui::MouseEvent& event)
 
   if (this->drawingWith != agui::MouseButton::NONE && event.getButton() == this->drawingWith) {
     this->drawingWith = agui::MouseButton::NONE;
+    this->dirty       = true;
     if (p == this->drawingOn) this->drawTo(this->boardAt(p, event));
     // The line is done: it fades from now, and the others are told.
     for (auto it = this->sketches.rbegin(); it != this->sketches.rend(); ++it) {

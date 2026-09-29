@@ -64,7 +64,7 @@ constexpr ToolLook TOOLS[] = {
   { Tool::TerritoryBlack, Sprite::TerritoryBlack, "",    "Black's territory" },
   { Tool::TerritoryWhite, Sprite::TerritoryWhite, "",    "White's territory" },
   { Tool::Dim,            std::nullopt,           "Dim", "Dim points, to put them in the background" },
-  { Tool::Pen,            Sprite::Pen,            "",    "Draw on the board, to show something -- in a shared game, the others see it too. The lines fade away. The middle mouse button draws whatever the tool." },
+  { Tool::Pen,            Sprite::Pen,            "",    "Draw on the board, to show something -- in a shared game, the others see it too. The lines fade away. The middle mouse button, or Alt with the left one, draws whatever the tool." },
 };
 
 // The drop-downs' items, and the SGF property each sets.

@@ -54,6 +54,8 @@ constexpr MouseAction MOUSE[] = {
   { "Insert a move", "After the current one; the rest of the game follows on after it.", "Ctrl + click", nullptr },
   { "Move a stone", "Changes the move that played it, however long ago that was.", "Drag a stone", nullptr },
   { "Go to the move that played a stone", nullptr, "Right-click a stone", "Shift + click a stone" },
+  { "Draw on the board", "To show something; in a shared game, the others see it too. The Pen tool draws with a plain drag.",
+    "Alt + drag", "Middle-drag" },
   { "Back and forward through the game", nullptr, "Mouse wheel", nullptr },
   { "Clear a point", "With a mark tool: takes off whatever mark is there.", "Right-click", nullptr },
   { "Show tooltips at once", "Whatever the tooltip delay in Settings says.", "Hold Shift", nullptr },
