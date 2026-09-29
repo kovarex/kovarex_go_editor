@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -49,6 +50,8 @@ constexpr auto EMPTY_ROOM_TIME = std::chrono::minutes(30);
 constexpr auto BUSY_SLEEP = std::chrono::milliseconds(2);
 constexpr auto IDLE_SLEEP = std::chrono::milliseconds(40);
 constexpr auto BUSY_TIME  = std::chrono::seconds(2);
+// How often the relay looks whether a new build replaced it.
+constexpr auto PROGRAM_LOOK = std::chrono::seconds(5);
 // Wrong room codes one address may try before it is turned away for a while:
 // codes are too many to guess, and more so at this pace.
 constexpr int  MAX_MISSES  = 10;
@@ -307,10 +310,26 @@ int main(int argc, char** argv)
   }
   Log("listening on port " + std::to_string(port));
 
+  // A new build put in place of this program (relay/deploy.sh) ends it, for
+  // whatever runs it -- NearlyFreeSpeech's daemons -- to start the new one.
+  std::error_code                       ignored;
+  const std::filesystem::path           self  = argv[0];
+  const std::filesystem::file_time_type built = std::filesystem::last_write_time(self, ignored);
+
   Relay             relay(std::move(listener));
   Clock::time_point lastBusy = Clock::now();
+  Clock::time_point lastLook = Clock::now();
   for (;;) {
     if (relay.update()) lastBusy = Clock::now();
+    if (Clock::now() - lastLook > PROGRAM_LOOK) {
+      lastLook = Clock::now();
+      std::error_code error;
+      const auto now = std::filesystem::last_write_time(self, error);
+      if (!error && now != built) {
+        Log("replaced by a new build: stopping, for it to start");
+        return 0;
+      }
+    }
     std::this_thread::sleep_for(Clock::now() - lastBusy < BUSY_TIME ? BUSY_SLEEP : IDLE_SLEEP);
   }
 }

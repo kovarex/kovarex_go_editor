@@ -1,8 +1,12 @@
 #!/bin/sh
 # Updates the relay where it runs (see README.md, "On NearlyFreeSpeech"):
-# pulls the repository, builds the relay, puts it in place of the running
-# one, and has the daemon start the new one. From anywhere:
+# pulls the repository, builds the relay, and puts it in place of the
+# running one. From anywhere:
 #   sh /home/protected/kovarex_go_editor/relay/deploy.sh
+#
+# The running relay notices within seconds that its program was replaced and
+# stops, and the daemon starts the new one. (Daemons don't run where ssh
+# does, so they can't be stopped from here.)
 #
 # All of it is in main(), read whole before anything runs, since the pull
 # may change this very file.
@@ -20,19 +24,7 @@ main() {
   # the new one goes next to it and is renamed over it.
   cp relay/go_relay "$target.new"
   mv -f "$target.new" "$target"
-
-  # The daemon starts it again when it stops: stopped, it comes back as the
-  # new one.
-  if pkill -x go_relay; then
-    echo "Stopped the old relay; waiting for the daemon to start the new one..."
-    sleep 3
-  fi
-  if pgrep -x go_relay > /dev/null; then
-    echo "Done: the new relay is running."
-  else
-    echo "The relay isn't running: restart the daemon on the site's page."
-    exit 1
-  fi
+  echo "Done: the relay starts the new build within seconds."
 }
 
 main "$@"

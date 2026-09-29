@@ -78,8 +78,9 @@ Updating it: over ssh,
 sh /home/protected/kovarex_go_editor/relay/deploy.sh
 ```
 
-pulls the repository, builds the relay, puts it in place of the running one,
-and stops that, for the daemon to start the new one.
+pulls the repository, builds the relay, and puts it in place of the running
+one, which notices within seconds, stops, and is started again by the daemon
+as the new build.
 
 The relay spends almost nothing while idle: it looks for work 25 times a
 second, and faster only while messages are going through.
