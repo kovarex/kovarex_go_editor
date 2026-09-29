@@ -79,7 +79,7 @@ App::App()
 
   // A file double-clicked in Explorer arrives on the command line.
   const std::vector<std::filesystem::path> files = platform::CommandLineFiles();
-  if (files.empty() || !this->open(files.front())) this->newGame();
+  if (files.empty() || !this->open(files.front())) this->emptyBoard();
 }
 
 int App::run()
@@ -339,7 +339,16 @@ void App::proceed()
 
 void App::newGame()
 {
-  GameSetup setup = this->settings.newGame;
+  this->start(this->settings.newGame);
+}
+
+void App::emptyBoard()
+{
+  this->start(GameSetup{});
+}
+
+void App::start(GameSetup setup)
+{
   setup.date = Today();
   this->game = std::make_unique<Game>(setup);
   this->path.clear();
@@ -462,6 +471,11 @@ void App::updateSharing()
   // Drawn here: to the others. (Without a session the lines are only here.)
   for (const net::StrokePart& part : editor.takeStrokes()) this->sharing.sendStroke(part);
   if (this->game) this->sharing.update(*this->game);
+  // In a session now -- hosting, or welcomed into one: the Online page has
+  // done its job, and goes.
+  const bool joined = this->sharing.joined();
+  if (joined && !this->wasJoined && this->gui.pages().current() == ui::Pages::Page::Online) this->gui.pages().close();
+  this->wasJoined = joined;
   for (const net::Session::Event& e : this->sharing.takeStrokes()) {
     editor.addStroke(e.author, this->sharing.colourOf(e.author), e.stroke);
   }

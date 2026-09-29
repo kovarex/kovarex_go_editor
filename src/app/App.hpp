@@ -57,7 +57,12 @@ private:
   void guard(After then, const std::filesystem::path& file = {});
   void proceed();
 
+  // A game as the New game page is set up; at startup, an empty 19x19
+  // board, whatever that page was last set to -- no handicap stones, other
+  // size or players' names that nobody asked for this time.
   void newGame();
+  void emptyBoard();
+  void start(GameSetup setup);
   bool open(const std::filesystem::path& file);
   bool save(const std::filesystem::path& file);
   void saveOrAsk();
@@ -85,6 +90,7 @@ private:
 
   // The game shared with other editors, when it is.
   Sharing sharing;
+  bool    wasJoined = false;  // in a session last frame
 
   std::unique_ptr<Game>  game;
   std::filesystem::path  path;  // empty until the game is saved or was opened
