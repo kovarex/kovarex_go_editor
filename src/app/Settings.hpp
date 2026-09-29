@@ -78,6 +78,9 @@ struct Settings {
     bool moveNumbers = false;
     bool nextMoves   = true;  // faint stones where the variations from here go
     bool treeNumbers = true;  // move numbers on the game tree's stones
+    // The Navigate, Moves and Variation buttons. Without them -- their keys
+    // do the same -- the game tree gets more room.
+    bool navigationButtons = true;
 
     bool operator==(const Board&) const = default;
   };

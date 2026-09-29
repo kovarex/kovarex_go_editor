@@ -55,6 +55,8 @@ public:
   void setBindings(const Bindings& bindings);
   // Move numbers on the game tree's stones.
   void setTreeNumbers(bool on);
+  // The Navigate, Moves and Variation groups, or not: their keys do the same.
+  void setNavigationButtons(bool shown);
   // Drawing on the board (see BoardView): what was drawn here, what others
   // drew, and the colour lines drawn here come out in.
   std::vector<net::StrokePart> takeStrokes() { return this->board.takeStrokes(); }
@@ -148,6 +150,8 @@ private:
   agui::DropDown*  moveNote = nullptr;
   agui::TextBox*   comment = nullptr;
   agui::Widget*    upper = nullptr;  // everything in the side panel above the comment
+  agui::Widget*    navigation = nullptr;  // the Navigate, Moves and Variation groups
+  bool             navigationShown = true;
 
   std::array<agui::Button*, size_t(Tool::Count)> toolButtons{};
 

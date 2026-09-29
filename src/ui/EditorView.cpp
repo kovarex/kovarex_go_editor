@@ -355,6 +355,9 @@ agui::Widget& EditorView::buildNavigation()
   variation << this->commandButton("Copy", Command::Copy, "Copy this move and everything after it");
   variation << this->commandButton("Paste", Command::Paste, "Paste what was cut or copied as a new variation here");
   rows << (this->group("Variation") << variation);
+
+  // All of it goes without the navigation buttons (setNavigationButtons).
+  this->navigation = &rows;
   return rows;
 }
 
@@ -437,6 +440,13 @@ void EditorView::applyTips()
 void EditorView::setTreeNumbers(bool on)
 {
   this->tree.setNumbers(on);
+}
+
+void EditorView::setNavigationButtons(bool shown)
+{
+  if (shown == this->navigationShown) return;
+  this->navigationShown = shown;
+  this->navigation->setVisible(shown);
 }
 
 void EditorView::showPresence(const Presence& presence)

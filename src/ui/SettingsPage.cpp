@@ -210,6 +210,8 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
   check("Next moves", &Settings::Board::nextMoves, "Where the variations from the current move go, as faint stones.");
   check("Numbers in the game tree", &Settings::Board::treeNumbers,
         "Each move's number on its stone in the game tree, as CGoban shows it, rather than the bare stone.");
+  check("Navigation buttons", &Settings::Board::navigationButtons,
+        "Shows the Navigate, Moves and Variation UI sections.\nUnchecking saves UI space, as they use well known shortcuts.");
 
   // --- files: an action, not a setting, so Reset leaves it be ---
   {
