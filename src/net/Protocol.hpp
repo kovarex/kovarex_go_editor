@@ -26,6 +26,10 @@ constexpr uint32_t PROTOCOL_VERSION = 2;
 // or the relay.
 constexpr int DEFAULT_PORT = 27272;
 
+// The relay the editor offers to join through until told otherwise: the
+// project's own, on NearlyFreeSpeech (see relay/README.md).
+constexpr const char* DEFAULT_RELAY = "ws://kovarexgoeditor.com";
+
 // Room codes on the relay, in letters easy to read out and type -- no 0/O or
 // 1/I. A code ROOM_CODE_LENGTH long is a room someone opened, which has to
 // exist to be joined. One PAIR_KEY_LENGTH long is two people's own room (see

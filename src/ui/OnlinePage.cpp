@@ -112,7 +112,9 @@ OnlinePage::OnlinePage(Theme& theme, OnlineSetup& setup, std::function<void(size
   // Joining someone else's.
   this->joinSection = &section("Join a session");
   this->address = &Field();
-  this->address->setToolTip("The host's address, as they tell you -- with the port after a colon if it isn't the usual one.");
+  this->address->setToolTip(std::string("The relay's address -- ") + net::DEFAULT_RELAY +
+                            " unless you run your own -- or the address of an editor that hosts, as its player tells you, "
+                            "with the port after a colon if it isn't the usual one.");
   this->address->onTextEdit(this, [this] { this->setup.address = this->address->getText(); });
   this->room = &Field(120);
   this->room->setToolTip("Only on a relay: the code of the room to join, or nothing to open a new room.");

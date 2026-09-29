@@ -5,6 +5,7 @@
 #pragma once
 
 #include <game/Game.hpp>
+#include <net/Protocol.hpp>
 #include <ui/Controls.hpp>
 
 #include <algorithm>
@@ -28,7 +29,7 @@ struct Contact {
 struct OnlineSetup {
   std::string name;
   int         port = 27272;
-  std::string address;
+  std::string address = net::DEFAULT_RELAY;
   std::string room;
   // This editor's identity: made up the first time, then kept.
   std::string          identity;

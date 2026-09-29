@@ -33,9 +33,10 @@ It logs rooms opening and closing and people coming in to stdout.
 
 ## On NearlyFreeSpeech
 
-NearlyFreeSpeech runs long-lived programs as *daemons*, and only lets them be
-reached through the site's web server, as a *proxy*. WebSockets pass through
-proxies, so the relay works there on plain `ws://` over port 80.
+The project's relay runs there, as the site `kovarexgoeditor` (server type
+*Custom*) at `ws://kovarexgoeditor.com`, which the editor offers by default.
+NearlyFreeSpeech runs long-lived programs as *daemons*, reached only through
+the site's web server, as a *proxy*.
 
 1. **Build it there.** Over ssh:
 
@@ -50,24 +51,22 @@ proxies, so the relay works there on plain `ws://` over port 80.
    Linux won't run there.)
 
 2. **Daemon.** In the site's *Daemons* section, add one:
-   - Tag: `go-relay`
-   - Command line: `/home/protected/go_relay 27272`
+   - Tag: `gorelay` (letters only)
+   - Command line: `/home/protected/go_relay` -- no arguments allowed there,
+     so it listens on its default port, 27272
    - Working directory: `/home/protected`
    - Run daemon as: `me`
 
-   Daemons need a site whose server type allows them. If *Daemons* isn't
-   offered, change the server type in the site's config to one that is.
-
 3. **Proxy.** In the site's *Proxies* section, add one:
-   - Protocol: `HTTP`
-   - Base URI: `/relay`
+   - Protocol: `WebSockets` -- an `HTTP` proxy turns WebSocket connections
+     away (*400 Bad Request*)
+   - Base URI: `/`
    - Document root: `/`
    - Target port: `27272`
 
-4. **Check it.** Opening `http://<site>.nfshost.com/relay` in a browser
-   answers *"Go Editor. Connect to this address from the editor, not a
-   browser."*. In the editor, the address is
-   `ws://<site>.nfshost.com/relay`.
+4. **Check it.** A browser gets *"WebSockets Only"* from NearlyFreeSpeech,
+   which means the proxy is there; the editor, joining `ws://kovarexgoeditor.com`
+   with no room code, opens a room.
 
 Updating it: `git pull` and build again in `/home/protected/kovarex_go_editor`,
 copy the new `go_relay` over the old one, and restart the daemon.
