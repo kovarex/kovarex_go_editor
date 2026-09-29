@@ -57,6 +57,9 @@ public:
   void setTreeNumbers(bool on);
   // The Navigate, Moves and Variation groups, or not: their keys do the same.
   void setNavigationButtons(bool shown);
+  // The row for a node's name and how good its position and move are: shown
+  // when `on`, and anyway for a game that has any of that.
+  void setEvaluation(bool on);
   // Drawing on the board (see BoardView): what was drawn here, what others
   // drew, and the colour lines drawn here come out in.
   std::vector<net::StrokePart> takeStrokes() { return this->board.takeStrokes(); }
@@ -152,6 +155,11 @@ private:
   agui::Widget*    upper = nullptr;  // everything in the side panel above the comment
   agui::Widget*    navigation = nullptr;  // the Navigate, Moves and Variation groups
   bool             navigationShown = true;
+  agui::Widget*    evaluationRow = nullptr;  // the node's name, and the position's and move's notes
+  bool             evaluationOn  = false;
+  const Game*      evaluatedGame = nullptr;  // the game last looked through for them,
+  bool             gameEvaluated = false;    // and whether it has any
+  void             showEvaluation();
 
   std::array<agui::Button*, size_t(Tool::Count)> toolButtons{};
 

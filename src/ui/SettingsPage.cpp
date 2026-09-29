@@ -212,6 +212,9 @@ SettingsPage::SettingsPage(Theme& theme, const Settings& live, std::function<voi
         "Each move's number on its stone in the game tree, as CGoban shows it, rather than the bare stone.");
   check("Navigation buttons", &Settings::Board::navigationButtons,
         "Shows the Navigate, Moves and Variation UI sections.\nUnchecking saves UI space, as they use well known shortcuts.");
+  check("Position evaluation buttons", &Settings::Board::evaluationButtons,
+        "Shows the row for naming a position and saying how good it and its move are.\nA game that has any of "
+        "that shows it anyway.");
 
   // --- files: an action, not a setting, so Reset leaves it be ---
   {

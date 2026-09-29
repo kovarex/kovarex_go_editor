@@ -81,6 +81,9 @@ struct Settings {
     // The Navigate, Moves and Variation buttons. Without them -- their keys
     // do the same -- the game tree gets more room.
     bool navigationButtons = true;
+    // The row for naming a node and saying how good its position and its
+    // move are. Shown anyway for a game that has any of that.
+    bool evaluationButtons = false;
 
     bool operator==(const Board&) const = default;
   };

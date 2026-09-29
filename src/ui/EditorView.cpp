@@ -387,6 +387,8 @@ agui::Widget& EditorView::buildNode()
   });
 
   r << *this->nodeName << *this->positionNote << *this->moveNote;
+  this->evaluationRow = &r;
+  r.setVisible(false);
   return r;
 }
 
@@ -397,9 +399,11 @@ void EditorView::show(Game* newGame)
   this->game          = newGame;
   this->shownRevision = 0;
   this->commentNode   = nullptr;
+  this->evaluatedGame = nullptr;  // looked through afresh
   this->board.show(newGame);
   this->tree.show(newGame);
   this->refresh();
+  this->showEvaluation();
 }
 
 void EditorView::setTitle(const std::string& text)
@@ -447,6 +451,45 @@ void EditorView::setNavigationButtons(bool shown)
   if (shown == this->navigationShown) return;
   this->navigationShown = shown;
   this->navigation->setVisible(shown);
+}
+
+void EditorView::setEvaluation(bool on)
+{
+  if (on == this->evaluationOn) return;
+  this->evaluationOn = on;
+  this->showEvaluation();
+}
+
+namespace {
+
+// Whether any node of the game has a name or says how good its position or
+// move is.
+bool Evaluated(const sgf::Node& root)
+{
+  constexpr std::string_view IDS[] = { "N", "GB", "GW", "DM", "UC", "TE", "BM", "IT", "DO" };
+  std::vector<const sgf::Node*> left{ &root };
+  while (!left.empty()) {
+    const sgf::Node& node = *left.back();
+    left.pop_back();
+    for (const std::string_view id : IDS) {
+      if (node.has(id)) return true;
+    }
+    for (size_t i = 0; i < node.childCount(); ++i) left.push_back(&node.child(i));
+  }
+  return false;
+}
+
+}  // namespace
+
+void EditorView::showEvaluation()
+{
+  // Looked for once a game, and after it changes until found: once there,
+  // the row stays for that game, not to come and go as it is edited.
+  if (this->game && (this->game != this->evaluatedGame || !this->gameEvaluated)) {
+    this->evaluatedGame = this->game;
+    this->gameEvaluated = Evaluated(this->game->root());
+  }
+  this->evaluationRow->setVisible(this->evaluationOn || this->gameEvaluated);
 }
 
 void EditorView::showPresence(const Presence& presence)
@@ -624,6 +667,7 @@ void EditorView::refresh()
 {
   if (!this->game || this->shownRevision == this->game->revision()) return;
   this->shownRevision = this->game->revision();
+  this->showEvaluation();
 
   const sgf::Node& root     = this->game->root();
   const sgf::Node& node     = this->game->current();

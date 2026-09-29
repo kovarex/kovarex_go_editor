@@ -559,6 +559,7 @@ void App::updateSettings()
                                        this->settings.board.nextMoves });
   this->gui.editor().setTreeNumbers(this->settings.board.treeNumbers);
   this->gui.editor().setNavigationButtons(this->settings.board.navigationButtons);
+  this->gui.editor().setEvaluation(this->settings.board.evaluationButtons);
   this->gui.editor().setBindings(this->settings.controls);
   this->gui.pages().setSearchShortcut(this->settings.controls.keysFor(Command::FocusSearch));
 
