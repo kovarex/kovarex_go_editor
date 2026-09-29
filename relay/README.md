@@ -72,8 +72,14 @@ the site's web server, as a *proxy*.
 4. **Check it.** A browser gets *"WebSockets Only"* from NearlyFreeSpeech,
    which means the proxy is there; in the editor, *Start* opens a session.
 
-Updating it: `git pull` and build again in `/home/protected/kovarex_go_editor`,
-copy the new `go_relay` over the old one, and restart the daemon.
+Updating it: over ssh,
+
+```sh
+sh /home/protected/kovarex_go_editor/relay/deploy.sh
+```
+
+pulls the repository, builds the relay, puts it in place of the running one,
+and stops that, for the daemon to start the new one.
 
 The relay spends almost nothing while idle: it looks for work 25 times a
 second, and faster only while messages are going through.
