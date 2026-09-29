@@ -119,6 +119,13 @@ void TreeView::refresh()
       this->lit = now;
     }
     if (now) this->pane.scrollToMakeWidgetVisible(now, ScrollMode::InView);
+    // A comment written or wiped here changes the node's mark, not the tree.
+    const sgf::Node& current = this->game->current();
+    if (current.get("C").empty() == this->commented.contains(&current)) {
+      this->shownTree = 0;
+      this->refresh();
+      return;
+    }
   }
 }
 
@@ -153,6 +160,7 @@ void TreeView::rebuild()
 {
   this->canvas->clear();
   this->buttons.clear();
+  this->commented.clear();
   this->lit = nullptr;
   this->placed.clear();
   this->nextFree.clear();
@@ -223,7 +231,21 @@ void TreeView::rebuild()
     button << icon;
     Pin(icon, icon.style, STONE, STONE);
 
-    if (this->numbers && color != Stone::None) {
+    // A comment: a triangle, as CGoban has it -- in place of the number, or,
+    // on the bare stones, smaller so it fits on one.
+    const bool hasComment = !p.node->get("C").empty();
+    if (hasComment) {
+      const bool         onBlack = color == Stone::Black && !pass;
+      agui::ImageWidget& mark    = make<agui::ImageWidget>(
+          this->sprites.image(onBlack ? Sprite::TriangleLight : Sprite::TriangleDark));
+      mark.scaleToKeepTheRatio = true;
+      mark.setIgnoredByInteraction(true);
+      // Bigger where it stands for a number; no bigger than a set-up node's square.
+      const int size = this->numbers && color != Stone::None ? STONE * 5 / 4 : STONE;
+      Pin(mark, mark.style, size, size);
+      button << mark;
+      this->commented.insert(p.node);
+    } else if (this->numbers && color != Stone::None) {
       // A pass has no stone to be dark or light on: the number goes on the
       // background, like the dark one.
       const bool light = color == Stone::Black && !pass;

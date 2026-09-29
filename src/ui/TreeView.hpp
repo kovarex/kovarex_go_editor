@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ui {
@@ -78,6 +79,8 @@ private:
   std::vector<Placed>                           placed;
   std::vector<int>                              nextFree;  // the first free row, per column
   std::unordered_map<const sgf::Node*, agui::Button*> buttons;
+  // The nodes drawn with a comment's mark: drawn again when that changes.
+  std::unordered_set<const sgf::Node*> commented;
   agui::Button*                                 lit = nullptr;
 
   uint64_t shownTree     = 0;
