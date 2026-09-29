@@ -92,6 +92,7 @@ public:
   struct Line {
     agui::Point from, to;
     bool        arrow;
+    bool        preview = false;  // the one being drawn: see-through
   };
   LineLayer();
   void setLines(std::vector<Line> lines, float thickness);

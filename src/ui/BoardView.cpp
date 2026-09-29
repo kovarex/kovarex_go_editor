@@ -199,8 +199,17 @@ void LineLayer::setLines(std::vector<Line> newLines, float newThickness)
 
 void LineLayer::paintComponent(const agui::PaintEvent& paintEvent, const agui::Point&)
 {
-  const agui::Color ink(0.95f, 0.35f, 0.15f, 0.9f);
+  const agui::Color solid(0.95f, 0.35f, 0.15f, 0.9f);
+  const agui::Color faint(0.95f, 0.35f, 0.15f, 0.45f);
   for (const Line& line : this->lines) {
+    const agui::Color& ink = line.preview ? faint : solid;
+    if (line.from == line.to) {
+      // No line yet: a small cross where it will start.
+      const int arm = int(this->thickness * 2.5f);
+      paintEvent.graphics()->drawLine(line.from + agui::Point(-arm, -arm), line.from + agui::Point(arm, arm), solid, this->thickness);
+      paintEvent.graphics()->drawLine(line.from + agui::Point(-arm, arm), line.from + agui::Point(arm, -arm), solid, this->thickness);
+      continue;
+    }
     paintEvent.graphics()->drawLine(line.from, line.to, ink, this->thickness);
     if (!line.arrow) continue;
 
@@ -629,8 +638,6 @@ void BoardView::refresh()
       double                markOpacity = 1.0;
       if (marks[i]) {
         markSprite = MarkSprite(*marks[i], stone);
-      } else if (p == this->lineStart) {
-        markSprite = Sprite::Selected;
       } else if (p == last && label.empty()) {
         // A ring on the stone, as CGoban has it: dark on white, light on black.
         markSprite = MarkSprite(Mark::Circle, stone);
@@ -655,6 +662,13 @@ void BoardView::refresh()
       if (!a || !b || !position.inside(*a) || !position.inside(*b)) continue;
       drawn.push_back({ centre(*a), centre(*b), id[0] == 'A' });
     }
+  }
+  // The one being drawn: from the first click to the point under the mouse.
+  const bool lineTool = this->tool == Tool::Arrow || this->tool == Tool::Line;
+  // Until the mouse leaves the first point, a small cross marks it.
+  if (lineTool && this->lineStart.valid()) {
+    const Point to = this->hover.valid() ? this->hover : this->lineStart;
+    drawn.push_back({ centre(this->lineStart), centre(to), this->tool == Tool::Arrow, true });
   }
   this->lineLayer->setLines(std::move(drawn), std::max(2.0f, float(this->pitch) / 12.0f));
 }
